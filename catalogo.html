@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="hero-title-solid" style="text-align: center; font-size: 3rem; margin-top: 2rem;">CATÁLOGO DE PRODUCTOS</h1>
+</div>
+
+<div class="products-grid" style="margin-top: 3rem;">
+    {% for p in productos %}
+    <div class="product-card">
+        <div class="product-image">
+            <img src="{{ url_for('static', filename='images/' + p.image_url) }}" alt="{{ p.name }}">
+        </div>
+        <div class="product-info">
+            <h3>{{ p.name }}</h3>
+            <p class="category-tag">{{ p.category }}</p>
+            <p class="price">${{ "%.2f"|format(p.price) }}</p>
+            <div class="card-actions">
+                <a href="{{ url_for('producto', id=p.id) }}" class="btn-outline">Ver</a>
+                <a href="{{ url_for('agregar_carrito', id=p.id) }}" class="btn-secondary">Añadir</a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p>No hay productos disponibles.</p>
+    {% endfor %}
+</div>
+{% endblock %}

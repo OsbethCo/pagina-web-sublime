@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header" style="text-align: center; margin: 3rem 0;">
+    <h1 class="hero-title-solid" style="font-size: 3rem;">CREA TU PROPIO ESTILO</h1>
+    <p style="color: var(--text-muted); margin-top: 10px;">Elige un producto y sube tu diseño para sublimar.</p>
+</div>
+
+<div class="form-container" style="max-width: 600px; margin: 0 auto; background: var(--card-bg); padding: 40px; border-radius: 20px; border: 1px solid var(--border-color);">
+    <form action="{{ url_for('personalizar') }}" method="POST" enctype="multipart/form-data">
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="product_type" style="display: block; margin-bottom: 10px; font-weight: bold;">Selecciona el Producto</label>
+            <select name="product_type" id="product_type" style="width: 100%; padding: 15px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 8px;">
+                <option value="franela">Franela (Camiseta)</option>
+                <option value="taza">Taza</option>
+                <option value="llavero">Llavero</option>
+                <option value="filtro">Filtro / Termo</option>
+                <option value="mousepad">Mousepad</option>
+            </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 30px;">
+            <label for="design_image" style="display: block; margin-bottom: 10px; font-weight: bold;">Sube tu Diseño (PNG, JPG)</label>
+            <input type="file" name="design_image" id="design_image" style="width: 100%; padding: 15px; background: var(--bg-color); border: 1px dashed #FF0000; color: var(--text-color); border-radius: 8px; cursor: pointer;">
+        </div>
+        
+        <button type="submit" class="btn-primary" style="width: 100%;">AÑADIR PERSONALIZADO AL CARRITO ($30.00)</button>
+    </form>
+</div>
+{% endblock %}

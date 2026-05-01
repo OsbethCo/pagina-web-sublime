@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="product-detail-container">
+    <div class="product-detail-image">
+        <img src="{{ url_for('static', filename='images/' + producto.image_url) }}" alt="{{ producto.name }}" style="width: 100%; border-radius: 10px;">
+    </div>
+    <div class="product-detail-info">
+        <h1 class="hero-title-solid" style="font-size: 2.5rem; margin-bottom: 10px;">{{ producto.name }}</h1>
+        <p class="category-tag">{{ producto.category }}</p>
+        <p class="price" style="font-size: 2rem; margin: 20px 0;">${{ "%.2f"|format(producto.price) }}</p>
+        
+        <p style="color: var(--text-muted); margin-bottom: 30px; line-height: 1.6;">
+            Impresión por sublimación de alta calidad. Colores vibrantes que no se desvanecen con el tiempo. Materiales premium para una máxima durabilidad.
+        </p>
+        
+        <a href="{{ url_for('agregar_carrito', id=producto.id) }}" class="btn-primary" style="width: 100%; text-align: center;">AÑADIR AL CARRITO</a>
+    </div>
+</div>
+
+<style>
+.product-detail-container {
+    display: flex;
+    gap: 40px;
+    margin-top: 40px;
+    align-items: center;
+}
+.product-detail-image, .product-detail-info {
+    flex: 1;
+}
+@media (max-width: 768px) {
+    .product-detail-container {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}

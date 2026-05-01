@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sublime</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo"><a href="{{ url_for('home') }}">SUBLIME</a></div>
+        <ul class="nav-links" style="margin-left: auto;">
+            <li><a href="{{ url_for('home') }}">Inicio</a></li>
+            <li><a href="{{ url_for('catalogo') }}">Catálogo</a></li>
+            <li><a href="{{ url_for('personalizar') }}">Personalizar</a></li>
+            <li><a href="javascript:void(0);" id="theme-toggle" title="Cambiar Tema"><i class="fa-solid fa-moon fa-lg"></i></a></li>
+            <li><a href="{{ url_for('login') }}" title="Iniciar Sesión"><i class="fa-solid fa-user fa-lg"></i></a></li>
+            <li><a href="{{ url_for('carrito') }}" title="Carrito de Compras"><i class="fa-solid fa-cart-shopping fa-lg"></i> <span style="font-size: 0.8rem; background: var(--primary-grad); padding: 2px 6px; border-radius: 50%; color: white;">{{ session.get('cart', [])|length }}</span></a></li>
+        </ul>
+        <div class="burger-menu" id="burger-menu" style="margin-left: 20px;">
+            <span></span><span></span><span></span>
+        </div>
+    </nav>
+
+    <div class="content-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+        <div class="footer-cols">
+            <div>
+                <h3 class="logo-footer">SUBLIME</h3>
+                <p>Arte wearable que rompe límites.</p>
+            </div>
+            <div>
+                <h3>Tienda</h3>
+                <p><a href="{{ url_for('catalogo') }}">Todo</a></p>
+                <p><a href="{{ url_for('personalizar') }}">Personalizados</a></p>
+            </div>
+            <div>
+                <h3>Info</h3>
+                <p>Contacto</p>
+                <p>Términos</p>
+            </div>
+            <div>
+                <h3>Boletín</h3>
+                <input type="email" placeholder="Correo electrónico" class="newsletter-input">
+                <button class="newsletter-btn">SUSCRIBIRSE</button>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>&copy; 2026 Página Sublime. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

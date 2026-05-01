@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header" style="text-align: center; margin: 3rem 0;">
+    <h1 class="hero-title-solid" style="font-size: 3rem;">TU CARRITO</h1>
+</div>
+
+<div class="cart-container" style="max-width: 800px; margin: 0 auto;">
+    {% if cart %}
+        <div class="cart-items" style="background: var(--card-bg); padding: 20px; border-radius: 15px; margin-bottom: 30px;">
+            {% for item in cart %}
+            <div class="cart-item" style="display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid var(--border-color);">
+                <h3 style="margin: 0;">{{ item.name }}</h3>
+                <p style="margin: 0; font-weight: bold; color: #FF0000;">${{ "%.2f"|format(item.price) }}</p>
+            </div>
+            {% endfor %}
+            
+            <div class="cart-total" style="display: flex; justify-content: space-between; padding-top: 20px; margin-top: 10px;">
+                <h2 style="margin: 0;">TOTAL:</h2>
+                <h2 style="margin: 0; color: #FF0000;">${{ "%.2f"|format(total) }}</h2>
+            </div>
+        </div>
+        
+        <div style="text-align: right;">
+            <a href="{{ url_for('checkout') }}" class="btn-primary">PROCEDER AL PAGO</a>
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 50px; background: #111; border-radius: 15px;">
+            <h2>Tu carrito está vacío</h2>
+            <p style="color: #aaa; margin-top: 10px; margin-bottom: 20px;">Parece que aún no has añadido nada espectacular.</p>
+            <a href="{{ url_for('catalogo') }}" class="btn-secondary">Volver al Catálogo</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

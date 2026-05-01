@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="factura-container" style="max-width: 600px; margin: 4rem auto; background: white; color: black; padding: 40px; border-radius: 10px; font-family: 'Courier New', Courier, monospace;">
+    <div style="text-align: center; border-bottom: 2px dashed black; padding-bottom: 20px; margin-bottom: 20px;">
+        <h1 style="margin: 0; font-family: 'Inter', sans-serif;">SUBLIME</h1>
+        <p style="margin: 5px 0;">FACTURA DIGITAL</p>
+        <p style="margin: 5px 0;">Orden #{{ order.id }}</p>
+    </div>
+    
+    <div style="margin-bottom: 30px;">
+        <p><strong>Cliente:</strong> {{ order.user_id }}</p>
+        <p><strong>Dirección:</strong> {{ order.address }}</p>
+        <p><strong>Estado:</strong> {{ order.status }}</p>
+    </div>
+    
+    <div style="border-bottom: 2px dashed black; padding-bottom: 10px; margin-bottom: 10px; display: flex; justify-content: space-between;">
+        <strong>CONCEPTO</strong>
+        <strong>IMPORTE</strong>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+        <span>Subtotal Productos</span>
+        <span>${{ "%.2f"|format(order.total) }}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+        <span>Envío</span>
+        <span>$5.00</span>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; font-size: 1.5rem; font-weight: bold; border-top: 2px solid black; padding-top: 10px;">
+        <span>TOTAL</span>
+        <span>${{ "%.2f"|format(order.total + 5.00) }}</span>
+    </div>
+    
+    <div style="text-align: center; margin-top: 40px;">
+        <p>¡Gracias por tu compra!</p>
+        <button onclick="window.print()" class="btn-primary" style="margin-top: 20px;">Imprimir PDF</button>
+        <br><br>
+        <a href="{{ url_for('home') }}" style="color: blue; text-decoration: underline;">Volver al Inicio</a>
+    </div>
+</div>
+{% endblock %}
