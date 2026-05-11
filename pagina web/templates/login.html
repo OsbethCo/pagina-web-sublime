@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="auth-container">
+    <h1>INICIAR SESIÓN</h1>
+    
+    <form action="{{ url_for('login') }}" method="POST">
+        <div class="input-group">
+            <i class="fa-solid fa-envelope input-icon"></i>
+            <input type="text" name="username" placeholder="Usuario o Email" required>
+        </div>
+        
+        <div class="input-group">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input type="password" name="password" id="password" placeholder="Contraseña" required>
+            <i class="fa-solid fa-eye-slash password-toggle" id="togglePassword"></i>
+        </div>
+        
+        <div class="auth-extras">
+            <label class="remember-me">
+                <input type="checkbox" name="remember"> Recordarme
+            </label>
+            <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
+        </div>
+        
+        <button type="submit" class="btn-primary" style="width: 100%;">ENTRAR</button>
+    </form>
+    
+    <div class="social-auth">
+        <p>O continuar con</p>
+        <div class="social-buttons">
+            <a href="#" class="social-btn google">
+                <i class="fa-brands fa-google"></i> Google
+            </a>
+            <a href="#" class="social-btn facebook">
+                <i class="fa-brands fa-facebook-f"></i> Facebook
+            </a>
+        </div>
+    </div>
+    
+    <p style="text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 0.95rem;">
+        ¿No tienes cuenta? <a href="{{ url_for('registro') }}" class="accent-text">Regístrate aquí</a>
+    </p>
+</div>
+
+<script>
+    const togglePassword = document.querySelector('#togglePassword');
+    const password = document.querySelector('#password');
+
+    togglePassword.addEventListener('click', function (e) {
+        // alternar el atributo de tipo
+        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+        password.setAttribute('type', type);
+        // alternar el icono de la barra inclinada
+        this.classList.toggle('fa-eye');
+        this.classList.toggle('fa-eye-slash');
+    });
+</script>
+{% endblock %}

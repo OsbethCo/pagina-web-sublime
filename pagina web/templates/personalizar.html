@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header" style="text-align: center; margin: 3rem 0;">
+    <h2 class="hero-title-gradient" style="font-size: 3rem;">CREA TU PROPIO ESTILO</h2>
+    <p style="color: var(--text-muted); margin-top: 10px;">Personaliza cada detalle y obtén un producto único.</p>
+</div><div class="asymmetric-dashboard">
+    <!-- Panel izquierdo: Vista previa fija en vivo -->
+    <div class="sticky-preview">
+        <h3 style="margin-bottom: 20px; font-weight: 900; letter-spacing: 2px; color: var(--primary-grad);">ESTUDIO DE DISEÑO</h3>
+        <div class="mockup-container">
+            <i id="mockupProduct" class="fa-solid fa-shirt mockup-product"></i>
+            <img id="mockupImage" class="mockup-image-preview" src="" alt="" style="display: none;">
+            <div id="mockupText" class="mockup-text">Tu Mensaje</div>
+        </div>
+        <div class="summary-card" style="padding: 25px; background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border-color);">
+            <h4 style="margin-bottom: 15px; color: #00ff80; font-weight: 900;">TU SELECCIÓN</h4>
+            <ul style="list-style: none; font-size: 0.9rem; line-height: 1.8;">
+                <li><strong>Producto:</strong> <span id="summaryProduct">Franela</span></li>
+                <li><strong>Detalle:</strong> <span id="summarySize">M</span> - <span id="summaryMaterial">Algodón</span></li>
+                <li><strong>Ubicación:</strong> <span id="summaryPlacement">Centro Frontal</span></li>
+            </ul>
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
+                <div style="display: flex; justify-content: space-between; font-weight: 900; font-size: 1.4rem;">
+                    <span>TOTAL:</span>
+                    <span style="color: #00ff80;">$30.00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel derecho: Secciones escalonadas-->
+    <div class="controls-flow">
+        <form action="{{ url_for('personalizar') }}" method="POST" enctype="multipart/form-data" id="customForm">
+            
+            <!-- parte 1 -->
+            <section class="staggered-section">
+                <span class="section-label">Paso 01</span>
+                <h3>El Producto</h3>
+                
+                <div class="form-group" style="margin-top: 15px;">
+                    <label style="font-size: 0.8rem; font-weight: bold;">TIPO DE PRENDA</label>
+                    <select name="product_type" id="product_type" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                        <option value="franela" data-icon="fa-shirt">Franela (Camiseta)</option>
+                        <option value="taza" data-icon="fa-mug-hot">Taza</option>
+                        <option value="llavero" data-icon="fa-key">Llavero</option>
+                        <option value="filtro" data-icon="fa-bottle-water">Termo / Filtro</option>
+                        <option value="mousepad" data-icon="fa-note-sticky">Mousepad</option>
+                    </select>
+                </div>
+
+                // Hacer que las tallas (S, M, XL, etc) sòlo apliquen para las camisas.
+                Y que al cambiar a las tazas u otro producto sòlo se apliquen las medidas correcta.
+                
+
+                <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem; font-weight: bold;">TALLA</label>
+                        <select name="size" id="size" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                            <option value="S">S</option>
+                            <option value="M" selected>M</option>
+                            <option value="L">L</option>
+                            <option value="XL">XL</option>
+                            <option value="XXL">XXL</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem; font-weight: bold;">MATERIAL</label>
+                        <select name="material" id="material" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                            <option value="Algodón">Algodón</option>
+                            <option value="Poliéster">Poliéster</option>
+                            <option value="Cerámica">Cerámica</option>
+                            <option value="Aluminio">Aluminio</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label style="font-size: 0.8rem; font-weight: bold;">COLOR DE BASE</label>
+                    <div class="color-picker-wrapper" style="margin-top: 5px;">
+                        <div class="chromatic-wheel">
+                            <input type="color" name="product_color" id="product_color_picker" value="#ffffff" oninput="updateColorFromPicker(this, 'product')">
+                        </div>
+                        <span id="productColorName" style="font-size: 0.9rem; font-weight: bold; color: var(--primary-grad);">#FFFFFF</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- parte 2 -->
+            <section class="staggered-section">
+                <span class="section-label">Paso 02</span>
+                <h3>Tipografía y Estilo</h3>
+                
+                <div class="form-group" style="margin-top: 15px;">
+                    <label style="font-size: 0.8rem; font-weight: bold;">MENSAJE PERSONALIZADO</label>
+                    <input type="text" name="custom_text" id="custom_text" oninput="updatePreview()" placeholder="Tu frase aquí..." style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                </div>
+
+                <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem; font-weight: bold;">ESTILO FUENTE</label>
+                        <select name="font_style" id="font_style" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                            <option value="Inter, sans-serif" class="font-modern">Moderno</option>
+                            <option value="'Playfair Display', serif" class="font-elegant">Elegante</option>
+                            <option value="'Comic Sans MS', cursive" class="font-comic">Divertido</option>
+                            <option value="'Impact', sans-serif" class="font-impact">Fuerte</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem; font-weight: bold;">POSICIÓN</label>
+                        <select name="placement" id="placement" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                            <option value="Centro Frontal">Centro Frontal</option>
+                            <option value="Pecho">Pecho Izq.</option>
+                            <option value="Espalda">Espalda</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <label style="font-size: 0.8rem; font-weight: bold;">ESCALA DE TEXTO</label>
+                        <span id="textSizeLabel" style="color: #00ff80; font-weight: bold; font-size: 0.8rem;">1.5rem</span>
+                    </div>
+                    <input type="range" min="0.5" max="3" step="0.1" value="1.5" class="custom-range" id="textSizeSlider" oninput="updatePreview()">
+                </div>
+
+                <div class="form-group">
+                    <label style="font-size: 0.8rem; font-weight: bold;">COLOR DEL TEXTO</label>
+                    <div class="color-picker-wrapper" style="margin-top: 5px;">
+                        <div class="chromatic-wheel">
+                            <input type="color" name="text_color" id="text_color_picker" value="#000000" oninput="updateColorFromPicker(this, 'text')">
+                        </div>
+                        <span id="textColorName" style="font-size: 0.9rem; font-weight: bold; color: var(--primary-grad);">#000000</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- parte 3 -->
+            <section class="staggered-section">
+                <span class="section-label">Paso 03</span>
+                <h3>Gráficos y Carga</h3>
+                
+                <div class="form-group" style="margin-top: 15px; padding: 20px; background: var(--section-bg); border-radius: 15px; border: 1px dashed var(--primary-grad);">
+                    <label style="display: block; margin-bottom: 10px; font-weight: bold;">SUBE TU LOGO / ARTE</label>
+                    <input type="file" name="design_image" id="design_image" onchange="handleImage(this)" style="width: 100%; color: var(--text-color); cursor: pointer;">
+                </div>
+
+                <button type="submit" class="btn-primary" style="width: 100%; padding: 20px; font-size: 1.2rem; margin-top: 20px;">
+                    AÑADIR AL CARRITO <i class="fa-solid fa-cart-shopping" style="margin-left: 10px;"></i>
+                </button>
+            </section>
+        </form>
+    </div>
+</div>
+
+<script>
+function updateColorFromPicker(picker, target) {
+    const color = picker.value.toUpperCase();
+    if (target === 'product') {
+        document.getElementById('mockupProduct').style.color = color;
+        document.getElementById('productColorName').innerText = color;
+    } else {
+        document.getElementById('mockupText').style.color = color;
+        document.getElementById('textColorName').innerText = color;
+    }
+}
+
+function updatePreview() {
+    const productType = document.getElementById('product_type');
+    const selectedIcon = productType.options[productType.selectedIndex].getAttribute('data-icon');
+    document.getElementById('mockupProduct').className = `fa-solid ${selectedIcon} mockup-product`;
+    
+    const textValue = document.getElementById('custom_text').value;
+    document.getElementById('mockupText').innerText = textValue || "Tu Mensaje";
+    document.getElementById('mockupText').style.fontFamily = document.getElementById('font_style').value;
+    
+    const textSize = document.getElementById('textSizeSlider').value;
+    document.getElementById('mockupText').style.fontSize = textSize + 'rem';
+    document.getElementById('textSizeLabel').innerText = textSize + 'rem';
+    
+    document.getElementById('summaryProduct').innerText = productType.options[productType.selectedIndex].text;
+    document.getElementById('summarySize').innerText = document.getElementById('size').value;
+    document.getElementById('summaryMaterial').innerText = document.getElementById('material').value;
+    document.getElementById('summaryPlacement').innerText = document.getElementById('placement').value;
+
+    const mockupText = document.getElementById('mockupText');
+    const placement = document.getElementById('placement').value;
+    if (placement === 'Pecho') {
+        mockupText.style.left = '35%';
+        mockupText.style.top = '40%';
+        mockupText.style.fontSize = (textSize * 0.5) + 'rem';
+    } else {
+        mockupText.style.left = '50%';
+        mockupText.style.top = '55%';
+        mockupText.style.fontSize = textSize + 'rem';
+    }
+}
+
+function handleImage(input) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const mockupImg = document.getElementById('mockupImage');
+        mockupImg.src = e.target.result;
+        mockupImg.style.display = 'block';
+    }
+    if (input.files[0]) {
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// Initial update
+updatePreview();
+</script>
+{% endblock %}

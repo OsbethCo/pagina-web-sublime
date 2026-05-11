@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="auth-container">
+    <h1>CREAR CUENTA</h1>
+    
+    <form action="{{ url_for('registro') }}" method="POST">
+        <div class="input-group">
+            <i class="fa-solid fa-user input-icon"></i>
+            <input type="text" name="username" placeholder="Nombre de Usuario" required>
+        </div>
+
+        <div class="input-group">
+            <i class="fa-solid fa-envelope input-icon"></i>
+            <input type="email" name="email" placeholder="Correo Electrónico" required>
+        </div>
+        
+        <div class="input-group">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input type="password" name="password" id="password" placeholder="Contraseña" required>
+            <i class="fa-solid fa-eye-slash password-toggle" id="togglePassword"></i>
+        </div>
+        
+        <div class="auth-extras" style="justify-content: flex-start; gap: 10px;">
+            <label class="remember-me">
+                <input type="checkbox" required> Acepto los <a href="#" class="accent-text">Términos y Condiciones</a>
+            </label>
+        </div>
+        
+        <button type="submit" class="btn-primary" style="width: 100%;">REGISTRARSE</button>
+    </form>
+    
+    <div class="social-auth">
+        <p>O regístrate con</p>
+        <div class="social-buttons">
+            <a href="#" class="social-btn google">
+                <i class="fa-brands fa-google"></i> Google
+            </a>
+            <a href="#" class="social-btn facebook">
+                <i class="fa-brands fa-facebook-f"></i> Facebook
+            </a>
+        </div>
+    </div>
+    
+    <p style="text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 0.95rem;">
+        ¿Ya tienes cuenta? <a href="{{ url_for('login') }}" class="accent-text">Inicia sesión aquí</a>
+    </p>
+</div>
+
+<script>
+    const togglePassword = document.querySelector('#togglePassword');
+    const password = document.querySelector('#password');
+
+    togglePassword.addEventListener('click', function (e) {
+        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+        password.setAttribute('type', type);
+        this.classList.toggle('fa-eye');
+        this.classList.toggle('fa-eye-slash');
+    });
+</script>
+{% endblock %}
