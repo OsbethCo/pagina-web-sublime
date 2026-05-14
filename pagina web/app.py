@@ -1,3 +1,5 @@
+import os
+import sqlite3
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from models import db, User, Product, Order
 
@@ -6,7 +8,141 @@ app.secret_key = 'super_secret_key_for_sublime'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tienda.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SHARED_DB_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'Sublime', 'BD', 'database.db'))
+SHARED_SQL_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'Sublime', 'BD', 'database.sql'))
+
 db.init_app(app)
+
+
+def ensure_shared_db():
+    if not os.path.exists(SHARED_DB_PATH):
+        if not os.path.exists(SHARED_SQL_PATH):
+            raise RuntimeError('No se encontró BD/database.sql para crear la base de datos compartida.')
+        conn = sqlite3.connect(SHARED_DB_PATH)
+        conn.execute('PRAGMA foreign_keys = ON')
+        with open(SHARED_SQL_PATH, 'r', encoding='utf-8') as f:
+            conn.executescript(f.read())
+        conn.commit()
+        conn.close()
+
+
+def get_shared_db():
+    ensure_shared_db()
+    conn = sqlite3.connect(SHARED_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def map_product_row(row):
+    return {
+        'id': row['id_producto'],
+        'name': row['nombre'],
+        'category': row['categoria'] or 'General',
+        'price': float(row['precio_venta']),
+        'image_url': row['ruta_imagen'] or 'default-product.png',
+        'description': row['descripcion'] or ''
+    }
+
+
+def fetch_products(categoria=None, search_query=None, sort_option='newest', limit=None):
+    conn = get_shared_db()
+    sql = (
+        'SELECT p.id_producto, p.nombre, p.descripcion, p.precio_venta, '
+        'c.nombre AS categoria, '
+        'COALESCE((SELECT ruta_imagen FROM imagenes_productos ip WHERE ip.id_producto = p.id_producto ORDER BY ip.id_imagen LIMIT 1), ?) AS ruta_imagen '
+        'FROM productos p '
+        'LEFT JOIN categorias c ON p.id_categoria = c.id_categoria '
+        'WHERE p.activo = 1 '
+    )
+    params = ['default-product.png']
+
+    if categoria:
+        sql += ' AND c.nombre = ? '
+        params.append(categoria)
+
+    if search_query:
+        sql += ' AND (p.nombre LIKE ? OR p.descripcion LIKE ?) '
+        term = f'%{search_query}%'
+        params.extend([term, term])
+
+    if sort_option == 'price_asc':
+        sql += ' ORDER BY p.precio_venta ASC '
+    elif sort_option == 'price_desc':
+        sql += ' ORDER BY p.precio_venta DESC '
+    elif sort_option == 'name_asc':
+        sql += ' ORDER BY p.nombre ASC '
+    else:
+        sql += ' ORDER BY p.id_producto DESC '
+
+    if limit:
+        sql += ' LIMIT ? '
+        params.append(limit)
+
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return [map_product_row(row) for row in rows]
+
+
+def fetch_product_by_id(product_id):
+    conn = get_shared_db()
+    row = conn.execute(
+        'SELECT p.id_producto, p.nombre, p.descripcion, p.precio_venta, c.nombre AS categoria, '
+        'COALESCE((SELECT ruta_imagen FROM imagenes_productos ip WHERE ip.id_producto = p.id_producto ORDER BY ip.id_imagen LIMIT 1), ?) AS ruta_imagen '
+        'FROM productos p '
+        'LEFT JOIN categorias c ON p.id_categoria = c.id_categoria '
+        'WHERE p.activo = 1 AND p.id_producto = ? ',
+        ['default-product.png', product_id]
+    ).fetchone()
+    conn.close()
+    return map_product_row(row) if row else None
+
+
+def get_or_create_client(conn, email, nombre, direccion):
+    if email:
+        cliente = conn.execute('SELECT id_cliente FROM clientes WHERE correo = ? LIMIT 1', (email,)).fetchone()
+        if cliente:
+            return cliente['id_cliente']
+
+    cliente = conn.execute('SELECT id_cliente FROM clientes WHERE nombre = ? AND direccion = ? LIMIT 1', (nombre, direccion)).fetchone()
+    if cliente:
+        return cliente['id_cliente']
+
+    cursor = conn.execute(
+        'INSERT INTO clientes (nombre, correo, contraseña, direccion) VALUES (?, ?, ?, ?)',
+        (nombre, email, '', direccion)
+    )
+    conn.commit()
+    return cursor.lastrowid
+
+
+def ensure_order_statuses(conn):
+    count = conn.execute('SELECT COUNT(*) AS total FROM estados_pedido').fetchone()['total']
+    if count == 0:
+        conn.executemany('INSERT INTO estados_pedido (nombre) VALUES (?)', [('Pendiente',), ('Procesando',), ('Enviado',), ('Entregado',)])
+        conn.commit()
+
+
+def get_or_create_custom_product(conn):
+    producto = conn.execute('SELECT id_producto FROM productos WHERE nombre = ? LIMIT 1', ('Producto Personalizado',)).fetchone()
+    if producto:
+        return producto['id_producto']
+
+    categoria = conn.execute('SELECT id_categoria FROM categorias WHERE nombre = ? LIMIT 1', ('Personalizado',)).fetchone()
+    if categoria:
+        categoria_id = categoria['id_categoria']
+    else:
+        cursor = conn.execute('INSERT INTO categorias (nombre) VALUES (?)', ('Personalizado',))
+        categoria_id = cursor.lastrowid
+        conn.commit()
+
+    cursor = conn.execute(
+        'INSERT INTO productos (nombre, descripcion, costo, precio_venta, id_categoria, activo) VALUES (?, ?, ?, ?, ?, 1)',
+        ('Producto Personalizado', 'Producto personalizado diseñado por el cliente', 0.00, 30.00, categoria_id)
+    )
+    conn.commit()
+    return cursor.lastrowid
+
 
 # Crear la base de datos y algunos datos iniciales (semillas)
 with app.app_context():
@@ -28,7 +164,7 @@ with app.app_context():
 
 @app.route('/')
 def home():
-    trending = Product.query.filter_by(is_trending=True).all()
+    trending = fetch_products(sort_option='newest', limit=8)
     return render_template('index.html', trending=trending)
 
 @app.route('/catalogo')
@@ -36,30 +172,14 @@ def catalogo():
     categoria = request.args.get('categoria')
     search_query = request.args.get('q')
     sort_option = request.args.get('sort')
-    
-    query = Product.query
-    
-    if categoria:
-        query = query.filter_by(category=categoria)
-    
-    if search_query:
-        query = query.filter(Product.name.contains(search_query))
-        
-    if sort_option == 'price_asc':
-        query = query.order_by(Product.price.asc())
-    elif sort_option == 'price_desc':
-        query = query.order_by(Product.price.desc())
-    elif sort_option == 'name_asc':
-        query = query.order_by(Product.name.asc())
-    else:
-        query = query.order_by(Product.id.desc())
-        
-    productos = query.all()
+    productos = fetch_products(categoria=categoria, search_query=search_query, sort_option=sort_option)
     return render_template('catalogo.html', productos=productos)
 
 @app.route('/producto/<int:id>')
 def producto(id):
-    p = Product.query.get_or_404(id)
+    p = fetch_product_by_id(id)
+    if not p:
+        return render_template('404.html'), 404 if '404.html' in os.listdir(os.path.join(BASE_DIR, 'templates')) else ('Producto no encontrado', 404)
     return render_template('producto.html', producto=p)
 
 @app.route('/personalizar', methods=['GET', 'POST'])
@@ -92,18 +212,23 @@ def personalizar():
 
 @app.route('/agregar_carrito/<int:id>')
 def agregar_carrito(id):
-    p = Product.query.get_or_404(id)
+    p = fetch_product_by_id(id)
+    if not p:
+        flash('Producto no encontrado.', 'error')
+        return redirect(url_for('catalogo'))
+
     if 'cart' not in session:
         session['cart'] = []
-    session['cart'].append({'name': p.name, 'price': p.price})
+
+    session['cart'].append({'id': p['id'], 'name': p['name'], 'price': p['price'], 'quantity': 1})
     session.modified = True
-    flash(f'{p.name} añadido al carrito.', 'success')
+    flash(f"{p['name']} añadido al carrito.", 'success')
     return redirect(url_for('catalogo'))
 
 @app.route('/carrito')
 def carrito():
     cart = session.get('cart', [])
-    total = sum(item['price'] for item in cart)
+    total = sum(item['price'] * item.get('quantity', 1) for item in cart)
     return render_template('carrito.html', cart=cart, total=total)
 
 @app.route('/checkout', methods=['GET', 'POST'])
@@ -112,64 +237,114 @@ def checkout():
     if not cart:
         flash('Tu carrito está vacío.', 'error')
         return redirect(url_for('catalogo'))
-        
+
+    total = sum(item['price'] * item.get('quantity', 1) for item in cart)
     if request.method == 'POST':
         name = request.form.get('name')
         address = request.form.get('address')
         payment_method = request.form.get('payment_method')
         reference = request.form.get('reference')
-        total = sum(item['price'] for item in cart)
-        
-        # Guardar items como JSON
-        import json
-        items_json = json.dumps(cart)
-        
-        u = User.query.first()
-        if not u:
-            u = User(username='Invitado', password='na')
-            db.session.add(u)
-            db.session.commit()
-            
-        order = Order(
-            user_id=u.id, 
-            total=total, 
-            address=f"{name} - {address}",
-            payment_method=payment_method,
-            reference=reference,
-            items_json=items_json
+
+        conn = get_shared_db()
+        ensure_order_statuses(conn)
+        cliente_id = get_or_create_client(conn, session.get('user_email'), session.get('username') or name, address)
+        status = conn.execute('SELECT id_estado FROM estados_pedido WHERE nombre = ? LIMIT 1', ('Pendiente',)).fetchone()
+        status_id = status['id_estado'] if status else 1
+
+        pedido_cursor = conn.execute(
+            'INSERT INTO pedidos (id_cliente, id_estado, total) VALUES (?, ?, ?)',
+            (cliente_id, status_id, total)
         )
-        db.session.add(order)
-        db.session.commit()
-        
+        pedido_id = pedido_cursor.lastrowid
+
+        for item in cart:
+            product_id = item.get('id')
+            if not product_id:
+                product_id = get_or_create_custom_product(conn)
+            cantidad = item.get('quantity', 1)
+            conn.execute(
+                'INSERT INTO detalle_pedidos (id_pedido, id_producto, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
+                (pedido_id, product_id, cantidad, item['price'])
+            )
+
+        conn.execute(
+            'INSERT INTO envios (id_pedido, direccion_envio, empresa_envio, numero_guia, estado_envio, fecha_envio) VALUES (?, ?, ?, ?, ?, datetime("now"))',
+            (pedido_id, address, payment_method or 'Pendiente', reference or '', 'Pendiente',)
+        )
+        conn.commit()
+        conn.close()
+
         session.pop('cart', None)
-        return redirect(url_for('factura', order_id=order.id))
-        
-    total = sum(item['price'] for item in cart)
+        return redirect(url_for('factura', order_id=pedido_id))
+
     return render_template('checkout.html', total=total)
 
 @app.route('/factura/<int:order_id>')
 def factura(order_id):
-    order = Order.query.get_or_404(order_id)
-    import json
-    items = json.loads(order.items_json) if order.items_json else []
-    return render_template('factura.html', order=order, items=items)
+    conn = get_shared_db()
+    order_row = conn.execute(
+        'SELECT p.id_pedido AS id, p.total, p.fecha, e.nombre AS estado, c.nombre AS cliente, c.correo, env.direccion_envio AS address, env.empresa_envio AS payment_method, env.numero_guia AS reference '
+        'FROM pedidos p '
+        'LEFT JOIN estados_pedido e ON p.id_estado = e.id_estado '
+        'LEFT JOIN clientes c ON p.id_cliente = c.id_cliente '
+        'LEFT JOIN envios env ON env.id_pedido = p.id_pedido '
+        'WHERE p.id_pedido = ? LIMIT 1',
+        (order_id,)
+    ).fetchone()
+
+    if not order_row:
+        conn.close()
+        return render_template('404.html'), 404 if '404.html' in os.listdir(os.path.join(BASE_DIR, 'templates')) else ('Pedido no encontrado', 404)
+
+    items = conn.execute(
+        'SELECT dp.cantidad, dp.precio_unitario, pr.nombre AS name '
+        'FROM detalle_pedidos dp '
+        'LEFT JOIN productos pr ON dp.id_producto = pr.id_producto '
+        'WHERE dp.id_pedido = ?',
+        (order_id,)
+    ).fetchall()
+    conn.close()
+
+    items_list = [
+        {
+            'name': item['name'] or 'Producto personalizado',
+            'price': item['precio_unitario'] * item['cantidad'],
+            'details': f'Cantidad: {item["cantidad"]}' if item['cantidad'] and item['cantidad'] > 1 else ''
+        }
+        for item in items
+    ]
+
+    order = {
+        'id': order_row['id'],
+        'total': float(order_row['total']),
+        'address': order_row['address'] or '',
+        'payment_method': order_row['payment_method'] or '',
+        'reference': order_row['reference'] or '',
+    }
+    return render_template('factura.html', order=order, items=items_list)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
-        user = User.query.filter((User.username == username) | (User.email == username)).first()
-        
-        if user and user.password == password:
-            session['user_id'] = user.id
-            session['username'] = user.username
-            flash(f'¡Bienvenido de nuevo, {user.username}!', 'success')
+
+        conn = get_shared_db()
+        user = conn.execute(
+            'SELECT id_usuario, nombre, correo, contraseña FROM usuarios WHERE correo = ? OR nombre = ? LIMIT 1',
+            (username, username)
+        ).fetchone()
+        conn.close()
+
+        if user and user['contraseña'] == password:
+            session['user_id'] = user['id_usuario']
+            session['username'] = user['nombre']
+            session['user_email'] = user['correo']
+            flash(f'¡Bienvenido de nuevo, {user["nombre"]}!', 'success')
             return redirect(url_for('home'))
         else:
             flash('Usuario o contraseña incorrectos.', 'error')
-            
+
     return render_template('login.html')
 
 
@@ -179,18 +354,40 @@ def registro():
         username = request.form.get('username')
         password = request.form.get('password')
         email = request.form.get('email')
-        
-        existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
+
+        conn = get_shared_db()
+        existing_user = conn.execute(
+            'SELECT id_usuario FROM usuarios WHERE nombre = ? OR correo = ? LIMIT 1',
+            (username, email)
+        ).fetchone()
+
         if existing_user:
             flash('El nombre de usuario o email ya está en uso.', 'error')
         else:
-            new_user = User(username=username, password=password, email=email)
-            db.session.add(new_user)
-            db.session.commit()
+            # Asignar rol Trabajador (2) si existe, o Administrador por defecto
+            role = conn.execute('SELECT id_rol FROM roles WHERE nombre = ? LIMIT 1', ('Trabajador',)).fetchone()
+            role_id = role['id_rol'] if role else 2
+            conn.execute(
+                'INSERT INTO usuarios (nombre, correo, contraseña, id_rol) VALUES (?, ?, ?, ?)',
+                (username, email, password, role_id)
+            )
+            conn.commit()
             flash('Cuenta creada exitosamente. ¡Bienvenido!', 'success')
+            conn.close()
             return redirect(url_for('login'))
-            
+
+        conn.close()
+
     return render_template('registro.html')
+
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    session.pop('username', None)
+    session.pop('user_email', None)
+    flash('Has cerrado sesión.', 'success')
+    return redirect(url_for('home'))
 
 
 if __name__ == '__main__':
