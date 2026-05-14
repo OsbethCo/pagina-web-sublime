@@ -11,7 +11,12 @@
             {% for item in cart %}
             <div class="cart-item-row">
                 <h3 style="margin: 0;">{{ item.name }}</h3>
-                <p class="accent-text" style="margin: 0;">${{ "%.2f"|format(item.price) }}</p>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <p class="accent-text" style="margin: 0;">${{ "%.2f"|format(item.price) }}</p>
+                    <a href="{{ url_for('eliminar_carrito', index=loop.index0) }}" class="btn-remove-item" title="Eliminar producto">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </a>
+                </div>
             </div>
             {% endfor %}
             
