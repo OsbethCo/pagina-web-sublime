@@ -25,7 +25,7 @@
             {% else %}
             <li><a href="{{ url_for('login') }}" style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-user fa-lg"></i> <span style="text-transform: none;">Iniciar sesión</span></a></li>
             {% endif %}
-            <li><a href="{{ url_for('carrito') }}" title="Carrito de Compras"><i class="fa-solid fa-cart-shopping fa-lg"></i> <span style="font-size: 0.8rem; background: var(--primary-grad); padding: 2px 6px; border-radius: 50%; color: white;">{{ session.get('cart', [])|length }}</span></a></li>
+            <li><a href="{{ url_for('carrito') }}" title="Carrito de Compras"><i class="fa-solid fa-cart-shopping fa-lg"></i> <span style="font-size: 0.8rem; background: var(--primary-grad); padding: 2px 6px; border-radius: 50%; color: white;">{{ cart_count|default(0) }}</span></a></li>
         </ul>
         <div class="burger-menu" id="burger-menu" style="margin-left: 20px;">
             <span></span><span></span><span></span>

@@ -123,25 +123,65 @@ def ensure_order_statuses(conn):
         conn.commit()
 
 
-def get_or_create_custom_product(conn):
-    producto = conn.execute('SELECT id_producto FROM productos WHERE nombre = ? LIMIT 1', ('Producto Personalizado',)).fetchone()
-    if producto:
-        return producto['id_producto']
-
-    categoria = conn.execute('SELECT id_categoria FROM categorias WHERE nombre = ? LIMIT 1', ('Personalizado',)).fetchone()
-    if categoria:
-        categoria_id = categoria['id_categoria']
-    else:
-        cursor = conn.execute('INSERT INTO categorias (nombre) VALUES (?)', ('Personalizado',))
-        categoria_id = cursor.lastrowid
-        conn.commit()
-
-    cursor = conn.execute(
-        'INSERT INTO productos (nombre, descripcion, costo, precio_venta, id_categoria, activo) VALUES (?, ?, ?, ?, ?, 1)',
-        ('Producto Personalizado', 'Producto personalizado diseñado por el cliente', 0.00, 30.00, categoria_id)
-    )
+def get_or_create_cart(conn, cliente_id):
+    carrito = conn.execute('SELECT id_carrito FROM carrito WHERE id_cliente = ? AND fecha_creacion >= datetime("now", "-1 day") ORDER BY fecha_creacion DESC LIMIT 1', (cliente_id,)).fetchone()
+    if carrito:
+        return carrito['id_carrito']
+    
+    cursor = conn.execute('INSERT INTO carrito (id_cliente) VALUES (?)', (cliente_id,))
     conn.commit()
     return cursor.lastrowid
+
+
+def load_cart_from_db():
+    if 'user_id' not in session:
+        return []
+    
+    conn = get_shared_db()
+    cliente_id = session['user_id']
+    carrito_id = get_or_create_cart(conn, cliente_id)
+    
+    items = conn.execute(
+        'SELECT dc.id_detalle, dc.id_producto, dc.cantidad, dc.precio_unitario, p.nombre AS name, p.descripcion '
+        'FROM detalle_carrito dc '
+        'LEFT JOIN productos p ON dc.id_producto = p.id_producto '
+        'WHERE dc.id_carrito = ?',
+        (carrito_id,)
+    ).fetchall()
+    conn.close()
+    
+    return [
+        {
+            'id': item['id_producto'],
+            'name': item['name'] or 'Producto personalizado',
+            'price': float(item['precio_unitario']),
+            'quantity': item['cantidad'],
+            'details': item['descripcion'] or ''
+        }
+        for item in items
+    ]
+
+
+def save_cart_to_db(cart_items):
+    if 'user_id' not in session:
+        return
+    
+    conn = get_shared_db()
+    cliente_id = session['user_id']
+    carrito_id = get_or_create_cart(conn, cliente_id)
+    
+    # Limpiar carrito anterior
+    conn.execute('DELETE FROM detalle_carrito WHERE id_carrito = ?', (carrito_id,))
+    
+    # Insertar nuevos items
+    for item in cart_items:
+        conn.execute(
+            'INSERT INTO detalle_carrito (id_carrito, id_producto, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
+            (carrito_id, item.get('id'), item.get('quantity', 1), item['price'])
+        )
+    
+    conn.commit()
+    conn.close()
 
 
 # Crear la base de datos y algunos datos iniciales (semillas)
@@ -165,7 +205,8 @@ with app.app_context():
 @app.route('/')
 def home():
     trending = fetch_products(sort_option='newest', limit=8)
-    return render_template('index.html', trending=trending)
+    cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
+    return render_template('index.html', trending=trending, cart_count=cart_count)
 
 @app.route('/catalogo')
 def catalogo():
@@ -173,7 +214,15 @@ def catalogo():
     search_query = request.args.get('q')
     sort_option = request.args.get('sort')
     productos = fetch_products(categoria=categoria, search_query=search_query, sort_option=sort_option)
-    return render_template('catalogo.html', productos=productos)
+    
+    # Obtener categorías para el filtro
+    conn = get_shared_db()
+    categorias = conn.execute('SELECT nombre FROM categorias ORDER BY nombre').fetchall()
+    conn.close()
+    categorias_list = [row['nombre'] for row in categorias]
+    
+    cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
+    return render_template('catalogo.html', productos=productos, categorias=categorias_list, cart_count=cart_count)
 
 @app.route('/producto/<int:id>')
 def producto(id):
@@ -198,17 +247,33 @@ def personalizar():
         if text:
             custom_details += f" con texto: '{text}' ({font}) en {placement}"
             
+        # Crear producto personalizado en DB
+        conn = get_shared_db()
+        product_id = get_or_create_custom_product(conn)
+        conn.close()
+        
         flash('Diseño personalizado añadido al carrito.', 'success')
-        if 'cart' not in session:
-            session['cart'] = []
-        session['cart'].append({
+        cart = load_cart_from_db() if 'user_id' in session else session.get('cart', [])
+        if not isinstance(cart, list):
+            cart = []
+        
+        cart.append({
+            'id': product_id,
             'name': f'Personalizado: {product_type.capitalize()}', 
             'details': custom_details,
-            'price': 30.00
+            'price': 30.00,
+            'quantity': 1
         })
-        session.modified = True
+        
+        if 'user_id' in session:
+            save_cart_to_db(cart)
+        else:
+            session['cart'] = cart
+            session.modified = True
+        
         return redirect(url_for('carrito'))
-    return render_template('personalizar.html')
+    cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
+    return render_template('personalizar.html', cart_count=cart_count)
 
 @app.route('/agregar_carrito/<int:id>')
 def agregar_carrito(id):
@@ -217,23 +282,43 @@ def agregar_carrito(id):
         flash('Producto no encontrado.', 'error')
         return redirect(url_for('catalogo'))
 
-    if 'cart' not in session:
-        session['cart'] = []
-
-    session['cart'].append({'id': p['id'], 'name': p['name'], 'price': p['price'], 'quantity': 1})
-    session.modified = True
+    cart = load_cart_from_db() if 'user_id' in session else session.get('cart', [])
+    if not isinstance(cart, list):
+        cart = []
+    
+    # Verificar si ya está en carrito
+    existing = next((item for item in cart if item.get('id') == id), None)
+    if existing:
+        existing['quantity'] += 1
+    else:
+        cart.append({'id': p['id'], 'name': p['name'], 'price': p['price'], 'quantity': 1})
+    
+    if 'user_id' in session:
+        save_cart_to_db(cart)
+    else:
+        session['cart'] = cart
+        session.modified = True
+    
     flash(f"{p['name']} añadido al carrito.", 'success')
     return redirect(url_for('catalogo'))
 
 @app.route('/carrito')
 def carrito():
-    cart = session.get('cart', [])
+    if 'user_id' in session:
+        cart = load_cart_from_db()
+    else:
+        cart = session.get('cart', [])
+    
     total = sum(item['price'] * item.get('quantity', 1) for item in cart)
-    return render_template('carrito.html', cart=cart, total=total)
+    return render_template('carrito.html', cart=cart, total=total, cart_count=len(cart))
 
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
-    cart = session.get('cart', [])
+    if 'user_id' in session:
+        cart = load_cart_from_db()
+    else:
+        cart = session.get('cart', [])
+    
     if not cart:
         flash('Tu carrito está vacío.', 'error')
         return redirect(url_for('catalogo'))
@@ -274,10 +359,16 @@ def checkout():
         conn.commit()
         conn.close()
 
-        session.pop('cart', None)
+        # Limpiar carrito
+        if 'user_id' in session:
+            save_cart_to_db([])
+        else:
+            session.pop('cart', None)
+        
         return redirect(url_for('factura', order_id=pedido_id))
 
-    return render_template('checkout.html', total=total)
+    cart_count = len(cart)
+    return render_template('checkout.html', total=total, cart_count=cart_count)
 
 @app.route('/factura/<int:order_id>')
 def factura(order_id):
