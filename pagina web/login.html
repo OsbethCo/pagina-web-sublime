@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sublimes - Iniciar Sesión</title>
+    <link rel="stylesheet" href="static/css/estilos.css">
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 0;">
+
+    <div style="max-width: 450px; margin: 80px auto; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border: 1px solid #ddd;">
+        <h2 style="text-align: center; font-size: 2rem; color: #333; margin-bottom: 10px;">¡Bienvenido de nuevo!</h2>
+        <p style="text-align: center; font-size: 1.1rem; color: #666; margin-bottom: 30px;">Por favor, ingresa tus datos para entrar a la tienda.</p>
+        
+        <form id="formLogin">
+            <div style="margin-bottom: 20px;">
+                <label for="usuario" style="display: block; font-size: 1.2rem; margin-bottom: 8px; font-weight: bold; color: #444;">Usuario o Correo Electrónico:</label>
+                <input type="text" id="usuario" required style="width: 100%; padding: 14px; font-size: 1.2rem; border: 2px solid #aaa; border-radius: 6px; box-sizing: border-box;">
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label for="contrasena" style="display: block; font-size: 1.2rem; margin-bottom: 8px; font-weight: bold; color: #444;">Contraseña:</label>
+                <input type="password" id="contrasena" required style="width: 100%; padding: 14px; font-size: 1.2rem; border: 2px solid #aaa; border-radius: 6px; box-sizing: border-box;">
+            </div>
+
+            <div id="mensajeError" style="display: none; background-color: #ffdddd; color: #d8000c; border: 1px solid #d8000c; padding: 15px; border-radius: 6px; font-size: 1.1rem; font-weight: bold; margin-bottom: 20px; text-align: center;"></div>
+
+            <button type="submit" style="width: 100%; background-color: #ff6600; color: white; border: none; padding: 16px; font-size: 1.4rem; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s;">
+                Entrar a la Tienda
+            </button>
+        </form>
+    </div>
+
+    <script src="static/js/login.js"></script>
+</body>
+</html>
