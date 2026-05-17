@@ -1,36 +1,45 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sublimes - Iniciar Sesión</title>
-    <link rel="stylesheet" href="static/css/estilos.css">
-</head>
-<body style="font-family: Arial, sans-serif; background-color: #f7f7f7; padding: 40px 20px;">
+document.addEventListener('DOMContentLoaded', () => {
+    const formLogin = document.getElementById('formLogin');
+    const mensajeError = document.getElementById('mensajeError');
 
-    <div style="max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-        <h2 style="text-align: center; color: #333; font-size: 1.8rem;">Iniciar Sesión</h2>
-        <p style="text-align: center; color: #666; font-size: 1.1rem;">Ingresa tus datos para entrar al sistema.</p>
+    if (formLogin) {
+        formLogin.addEventListener('submit', async (evento) => {
+            evento.preventDefault();
 
-        <form id="formLogin">
-            <div style="margin-bottom: 20px;">
-                <label for="usuario" style="display: block; font-size: 1.1rem; font-weight: bold; margin-bottom: 8px;">Usuario:</label>
-                <input type="text" id="usuario" required style="width: 100%; padding: 12px; font-size: 1.1rem; border: 2px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-            </div>
+            const usuarioInput = document.getElementById('usuario').value.trim();
+            const contrasenaInput = document.getElementById('contrasena').value;
 
-            <div style="margin-bottom: 20px;">
-                <label for="contrasena" style="display: block; font-size: 1.1rem; font-weight: bold; margin-bottom: 8px;">Contraseña:</label>
-                <input type="password" id="contrasena" required style="width: 100%; padding: 12px; font-size: 1.1rem; border: 2px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-            </div>
+            mensajeError.style.display = 'none';
+            mensajeError.textContent = '';
 
-            <div id="mensajeError" style="display: none; background-color: #ffdddd; color: #d8000c; padding: 12px; border-radius: 4px; font-weight: bold; margin-bottom: 20px; text-align: center; font-size: 1rem;"></div>
+            try {
+                const respuesta = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        usuario: usuarioInput,
+                        contrasena: contrasenaInput
+                    })
+                });
 
-            <button type="submit" style="width: 100%; background-color: #ff6600; color: white; border: none; padding: 14px; font-size: 1.2rem; font-weight: bold; border-radius: 4px; cursor: pointer;">
-                Entrar a la Tienda
-            </button>
-        </form>
-    </div>
+                const datos = await respuesta.json();
 
-    <script src="static/js/login.js"></script>
-</body>
-</html>
+                if (respuesta.ok) {
+                    localStorage.setItem('sesionActiva', 'true');
+                    localStorage.setItem('nombreUsuario', usuarioInput);
+                    window.location.href = 'index.html'; 
+                } else {
+                    mensajeError.textContent = datos.mensaje || 'El usuario o la contraseña no son correctos. Inténtalo de nuevo.';
+                    mensajeError.style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error(error);
+                mensajeError.textContent = 'Hubo un problema de conexión. Revisa tu internet.';
+                mensajeError.style.display = 'block';
+            }
+        });
+    }
+});
