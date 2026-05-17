@@ -5,14 +5,14 @@ from models import db, User, Product, Order
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_sublime'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tienda.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SHARED_DB_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'Sublime', 'BD', 'database.db'))
 SHARED_SQL_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'Sublime', 'BD', 'database.sql'))
 
-db.init_app(app)
+# Use the shared DB file for both raw sqlite and SQLAlchemy so data is consistent locally
+os.makedirs(os.path.dirname(SHARED_DB_PATH), exist_ok=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{SHARED_DB_PATH}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
 def ensure_shared_db():
@@ -133,6 +133,20 @@ def get_or_create_cart(conn, cliente_id):
     return cursor.lastrowid
 
 
+def get_or_create_custom_product(conn, name='Producto Personalizado', description='Producto personalizado', price=30.0):
+    # Intentar reutilizar un producto personalizado existente
+    existing = conn.execute('SELECT id_producto FROM productos WHERE nombre = ? LIMIT 1', (name,)).fetchone()
+    if existing:
+        return existing['id_producto']
+
+    cursor = conn.execute(
+        'INSERT INTO productos (nombre, descripcion, precio_venta, activo) VALUES (?, ?, ?, 1)',
+        (name, description, price)
+    )
+    conn.commit()
+    return cursor.lastrowid
+
+
 def load_cart_from_db():
     if 'user_id' not in session:
         return []
@@ -184,24 +198,48 @@ def save_cart_to_db(cart_items):
     conn.close()
 
 
-# Crear la base de datos y algunos datos iniciales (semillas)
-with app.app_context():
-    db.create_all()
-    # Si no hay productos, crear algunos
-    if Product.query.count() == 0:
-        products = [
-            Product(name="Taza Baki", category="Taza", price=15.00, image_url="taza baki.jpeg", is_trending=True),
-            Product(name="Taza con Flores", category="Taza", price=12.00, image_url="taza con flores.jpeg", is_trending=False),
-            Product(name="Taza Hollow Knight", category="Taza", price=15.00, image_url="taza hollow knight.jpeg", is_trending=True),
-            Product(name="Taza Mensaje Motivador", category="Taza", price=10.00, image_url="taza mensaje 1.jpeg", is_trending=False),
-            Product(name="Taza Poo Emoji", category="Taza", price=12.00, image_url="taza poo.jpeg", is_trending=False),
-            Product(name="Taza Sabra Pepe", category="Taza", price=15.00, image_url="taza sabra pepe.jpeg", is_trending=True),
-            Product(name="Taza Spiderman", category="Taza", price=15.00, image_url="taza spiderman.jpeg", is_trending=True),
-            Product(name="Taza Trofeo #1 Mamá", category="Taza", price=18.00, image_url="taza trofeo #1 mama.jpeg", is_trending=True)
-        ]
-        db.session.add_all(products)
-        db.session.commit()
+# Asegurar existencia de la DB compartida y configurar SQLAlchemy
+ensure_shared_db()
+db.init_app(app)
 
+# Semillas en la base de datos compartida (esquema SQL en español)
+conn = get_shared_db()
+try:
+    total = conn.execute('SELECT COUNT(*) AS total FROM productos').fetchone()['total']
+except Exception:
+    total = 0
+
+if total == 0:
+    # Crear categoría 'Taza' si no existe
+    cat = conn.execute('SELECT id_categoria FROM categorias WHERE nombre = ? LIMIT 1', ('Taza',)).fetchone()
+    if cat:
+        cat_id = cat['id_categoria']
+    else:
+        cur = conn.execute('INSERT INTO categorias (nombre) VALUES (?)', ('Taza',))
+        cat_id = cur.lastrowid
+
+    sample_products = [
+        ('Taza Baki', 'Taza Baki personalizada', 15.00, 'taza baki.jpeg'),
+        ('Taza con Flores', 'Taza con flores', 12.00, 'taza con flores.jpeg'),
+        ('Taza Hollow Knight', 'Taza Hollow Knight', 15.00, 'taza hollow knight.jpeg'),
+        ('Taza Mensaje Motivador', 'Taza con mensaje motivador', 10.00, 'taza mensaje 1.jpeg'),
+        ('Taza Poo Emoji', 'Taza Poo Emoji', 12.00, 'taza poo.jpeg'),
+        ('Taza Sabra Pepe', 'Taza Sabra Pepe', 15.00, 'taza sabra pepe.jpeg'),
+        ('Taza Spiderman', 'Taza Spiderman', 15.00, 'taza spiderman.jpeg'),
+        ('Taza Trofeo #1 Mamá', 'Taza Trofeo Mamá', 18.00, 'taza trofeo #1 mama.jpeg')
+    ]
+
+    for nombre, descripcion, precio, imagen in sample_products:
+        cur = conn.execute(
+            'INSERT INTO productos (nombre, descripcion, costo, precio_venta, id_categoria, activo) VALUES (?, ?, ?, ?, ?, 1)',
+            (nombre, descripcion, precio, precio, cat_id)
+        )
+        prod_id = cur.lastrowid
+        conn.execute('INSERT INTO imagenes_productos (id_producto, ruta_imagen) VALUES (?, ?)', (prod_id, imagen))
+
+    conn.commit()
+
+conn.close()
 @app.route('/')
 def home():
     trending = fetch_products(sort_option='newest', limit=8)
@@ -228,7 +266,9 @@ def catalogo():
 def producto(id):
     p = fetch_product_by_id(id)
     if not p:
-        return render_template('404.html'), 404 if '404.html' in os.listdir(os.path.join(BASE_DIR, 'templates')) else ('Producto no encontrado', 404)
+        if '404.html' in os.listdir(os.path.join(BASE_DIR, 'templates')):
+            return render_template('404.html'), 404
+        return 'Producto no encontrado', 404
     return render_template('producto.html', producto=p)
 
 @app.route('/personalizar', methods=['GET', 'POST'])
@@ -385,7 +425,9 @@ def factura(order_id):
 
     if not order_row:
         conn.close()
-        return render_template('404.html'), 404 if '404.html' in os.listdir(os.path.join(BASE_DIR, 'templates')) else ('Pedido no encontrado', 404)
+        if '404.html' in os.listdir(os.path.join(BASE_DIR, 'templates')):
+            return render_template('404.html'), 404
+        return 'Pedido no encontrado', 404
 
     items = conn.execute(
         'SELECT dp.cantidad, dp.precio_unitario, pr.nombre AS name '
@@ -479,6 +521,46 @@ def logout():
     session.pop('user_email', None)
     flash('Has cerrado sesión.', 'success')
     return redirect(url_for('home'))
+
+
+@app.route('/contacto', methods=['GET', 'POST'])
+def contacto():
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        email = request.form.get('email')
+        asunto = request.form.get('asunto')
+        mensaje = request.form.get('mensaje')
+        # Aquí podríamos guardar el mensaje en la DB o enviarlo por correo.
+        flash('Mensaje enviado. Gracias por contactarnos.', 'success')
+        return redirect(url_for('contacto'))
+    cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
+    return render_template('contacto.html', cart_count=cart_count)
+
+
+@app.route('/ayuda')
+def ayuda():
+    cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
+    return render_template('ayuda.html', cart_count=cart_count)
+
+
+@app.route('/terminos')
+def terminos():
+    cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
+    return render_template('terminos.html', cart_count=cart_count)
+
+
+@app.route('/privacidad')
+def privacidad():
+    cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
+    return render_template('privacidad.html', cart_count=cart_count)
+
+
+@app.route('/perfil')
+def perfil():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
+    return render_template('perfil.html', cart_count=cart_count)
 
 
 if __name__ == '__main__':
