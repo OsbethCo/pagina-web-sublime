@@ -15,16 +15,28 @@
 }
 
 body.light-mode {
-    --bg-color: #f8fafc;
-    --bg-rgb: 248, 250, 252;
-    --card-bg: #ffffff;
-    --text-color: #0f172a;
-    --text-muted: #334155; /* Darkened for better visibility */
-    --border-color: #e2e8f0;
-    --section-bg: #f1f5f9;
-    --glass-bg: rgba(248, 250, 252, 0.8);
+    --bg-color: #f0fdf4;
+    --bg-rgb: 240, 253, 244;
+    --card-bg: rgba(255, 255, 255, 0.6);
+    --text-color: #064e3b;
+    --text-muted: #166534;
+    --border-color: rgba(16, 185, 129, 0.2);
+    --section-bg: rgba(255, 255, 255, 0.4);
+    --glass-bg: rgba(255, 255, 255, 0.7);
     --accent-color: #059669;
-    --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --card-shadow: 0 20px 40px -5px rgba(16, 185, 129, 0.15);
+    --primary-grad: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --btn-grad: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+    background-attachment: fixed;
+    backdrop-filter: blur(10px);
+}
+
+body.light-mode .card-bg, body.light-mode .category-card, body.light-mode .product-card, body.light-mode footer {
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: var(--card-shadow);
 }
 
 * {
@@ -77,11 +89,10 @@ body.light-mode {
 }
 
 .nav-logo-full {
-    height: 3.5rem;
+    height: 2.2rem;
     width: auto;
     object-fit: contain;
-    /* Filtro para convertir negro a verde esmeralda (#00b350) */
-    filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(121deg) brightness(98%) contrast(101%);
+    transition: filter 0.3s ease;
 }
 
 .logo-footer {
@@ -93,7 +104,7 @@ body.light-mode {
 }
 
 .logo-footer .nav-logo-full {
-    height: 2.5rem;
+    height: 1.6rem;
 }
 
 .nav-links {

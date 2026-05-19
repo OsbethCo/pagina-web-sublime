@@ -16,11 +16,18 @@
             </a>
         </div>
         <ul class="nav-links" style="margin-left: auto; align-items: center;">
-            <li><a href="{{ url_for('home') }}"><i class="fa-solid fa-house"></i> Inicio</a></li>
-            <li><a href="{{ url_for('catalogo') }}"><i class="fa-solid fa-shop"></i> Catálogo</a></li>
-            <li><a href="{{ url_for('personalizar') }}"><i class="fa-solid fa-palette"></i> Personalizar</a></li>
+            <li><a href="{{ url_for('home') }}">Inicio</a></li>
+            <li><a href="{{ url_for('catalogo') }}">Catálogo</a></li>
+            <li><a href="{{ url_for('personalizar') }}">Personalizar</a></li>
             <li><a href="javascript:void(0);" id="theme-toggle" title="Cambiar Tema"><i class="fa-solid fa-moon fa-lg"></i></a></li>
-            <li><a href="{{ url_for('login') }}" style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-user fa-lg"></i> <span style="text-transform: none;">Iniciar sesión</span></a></li>
+            {% if session.get('username') %}
+                <li style="display: flex; align-items: center; gap: 15px; margin-left: 10px;">
+                    <span style="color: var(--accent-color); font-weight: 700; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-circle-user fa-lg"></i> {{ session['username'] }}</span>
+                    <a href="{{ url_for('logout') }}" style="color: #ff4b2b; text-decoration: none; font-size: 0.85rem; padding: 5px 10px; border: 1px solid rgba(255, 75, 43, 0.3); border-radius: 50px; transition: all 0.3s; display: flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(255, 75, 43, 0.1)';" onmouseout="this.style.background='transparent';"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
+                </li>
+            {% else %}
+                <li><a href="{{ url_for('login') }}" style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-user fa-lg"></i> <span style="text-transform: none;">Iniciar sesión</span></a></li>
+            {% endif %}
             <li><a href="{{ url_for('carrito') }}" title="Carrito de Compras"><i class="fa-solid fa-cart-shopping fa-lg"></i> <span style="font-size: 0.8rem; background: var(--primary-grad); padding: 2px 6px; border-radius: 50%; color: white;">{{ session.get('cart', [])|length }}</span></a></li>
         </ul>
         <div class="burger-menu" id="burger-menu" style="margin-left: 20px;">

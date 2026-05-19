@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <div class="page-header" style="text-align: center; margin: 3rem 0;">
     <h2 class="hero-title-gradient" style="font-size: 3rem;">CREA TU PROPIO ESTILO</h2>
     <p style="color: var(--text-muted); margin-top: 10px;">Personaliza cada detalle y obtén un producto único.</p>
@@ -8,16 +10,15 @@
     <!-- Panel izquierdo: Vista previa fija en vivo -->
     <div class="sticky-preview">
         <h3 style="margin-bottom: 20px; font-weight: 900; letter-spacing: 2px; color: var(--primary-grad);">ESTUDIO DE DISEÑO</h3>
-        <div class="mockup-container">
-            <i id="mockupProduct" class="fa-solid fa-shirt mockup-product"></i>
-            <img id="mockupImage" class="mockup-image-preview" src="" alt="" style="display: none;">
-            <div id="mockupText" class="mockup-text">Tu Mensaje</div>
+        <div class="mockup-container" id="mockupContainer" style="cursor: grab;">
+            <div id="threejs-canvas" style="width: 100%; height: 100%; border-radius: 20px; overflow: hidden;"></div>
+            <canvas id="textureCanvas" width="1024" height="1024" style="display: none;"></canvas>
         </div>
         <div class="summary-card" style="padding: 25px; background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border-color);">
             <h4 style="margin-bottom: 15px; color: #00ff80; font-weight: 900;">TU SELECCIÓN</h4>
             <ul style="list-style: none; font-size: 0.9rem; line-height: 1.8;">
                 <li><strong>Producto:</strong> <span id="summaryProduct">Franela</span></li>
-                <li><strong>Detalle:</strong> <span id="summarySize">M</span> - <span id="summaryMaterial">Algodón</span></li>
+                <li><strong>Detalle:</strong> <span id="summaryDetail">M - Algodón</span></li>
                 <li><strong>Ubicación:</strong> <span id="summaryPlacement">Centro Frontal</span></li>
             </ul>
             <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
@@ -39,9 +40,10 @@
                 <h3>El Producto</h3>
                 
                 <div class="form-group" style="margin-top: 15px;">
-                    <label style="font-size: 0.8rem; font-weight: bold;">TIPO DE PRENDA</label>
-                    <select name="product_type" id="product_type" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                    <label style="font-size: 0.8rem; font-weight: bold;">TIPO DE PRODUCTO</label>
+                    <select name="product_type" id="product_type" onchange="updateProductFields()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
                         <option value="franela" data-icon="fa-shirt">Franela (Camiseta)</option>
+                        <option value="short" data-icon="fa-person-running">Short Deportivo</option>
                         <option value="taza" data-icon="fa-mug-hot">Taza</option>
                         <option value="llavero" data-icon="fa-key">Llavero</option>
                         <option value="filtro" data-icon="fa-bottle-water">Termo / Filtro</option>
@@ -49,28 +51,15 @@
                     </select>
                 </div>
 
-                // Hacer que las tallas (S, M, XL, etc) sòlo apliquen para las camisas.
-                Y que al cambiar a las tazas u otro producto sòlo se apliquen las medidas correcta.
-                
-
-                <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="form-group">
+                <div class="form-grid" id="dynamicFieldsGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group" id="sizeGroup">
                         <label style="font-size: 0.8rem; font-weight: bold;">TALLA</label>
                         <select name="size" id="size" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
-                            <option value="S">S</option>
-                            <option value="M" selected>M</option>
-                            <option value="L">L</option>
-                            <option value="XL">XL</option>
-                            <option value="XXL">XXL</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="materialGroup">
                         <label style="font-size: 0.8rem; font-weight: bold;">MATERIAL</label>
                         <select name="material" id="material" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
-                            <option value="Algodón">Algodón</option>
-                            <option value="Poliéster">Poliéster</option>
-                            <option value="Cerámica">Cerámica</option>
-                            <option value="Aluminio">Aluminio</option>
                         </select>
                     </div>
                 </div>
@@ -153,62 +142,302 @@
     </div>
 </div>
 
-<script>
-function updateColorFromPicker(picker, target) {
-    const color = picker.value.toUpperCase();
-    if (target === 'product') {
-        document.getElementById('mockupProduct').style.color = color;
-        document.getElementById('productColorName').innerText = color;
-    } else {
-        document.getElementById('mockupText').style.color = color;
-        document.getElementById('textColorName').innerText = color;
+<style>
+    /* CSS para el efecto 3D */
+    .sticky-preview {
+        perspective: 1000px;
     }
+    
+    .mockup-container {
+        width: 100%;
+        height: 400px; /* Tamaño más accesible */
+        aspect-ratio: auto;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+        border-radius: 25px;
+        margin-bottom: 30px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    body.light-mode .mockup-container {
+        background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
+        box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+    }
+
+    .mockup-container:active {
+        cursor: grabbing !important;
+    }
+</style>
+
+<script>
+// Three.js Setup
+const container = document.getElementById('threejs-canvas');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+camera.position.z = 5;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+container.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.enableZoom = true;
+
+// Lights
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight.position.set(5, 5, 5);
+scene.add(dirLight);
+const backLight = new THREE.DirectionalLight(0xffffff, 0.4);
+backLight.position.set(-5, 5, -5);
+scene.add(backLight);
+
+// Texture Canvas
+const texCanvas = document.getElementById('textureCanvas');
+const texCtx = texCanvas.getContext('2d');
+let customTexture = new THREE.CanvasTexture(texCanvas);
+customTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+// Material
+const mainMaterial = new THREE.MeshStandardMaterial({
+    map: customTexture,
+    roughness: 0.5,
+    metalness: 0.1
+});
+
+// Geometries map
+const geometries = {
+    'franela': new THREE.BoxGeometry(2.5, 3, 0.4),
+    'short': new THREE.CylinderGeometry(1.2, 1.2, 2, 32),
+    'taza': new THREE.CylinderGeometry(1, 1, 2, 32),
+    'llavero': new THREE.TorusKnotGeometry(0.6, 0.2, 100, 16),
+    'filtro': new THREE.CylinderGeometry(0.7, 0.7, 3.5, 32),
+    'mousepad': new THREE.BoxGeometry(3, 2, 0.05)
+};
+
+let currentMesh = null;
+
+function init3D() {
+    update3DModel();
+    animate();
 }
 
-function updatePreview() {
-    const productType = document.getElementById('product_type');
-    const selectedIcon = productType.options[productType.selectedIndex].getAttribute('data-icon');
-    document.getElementById('mockupProduct').className = `fa-solid ${selectedIcon} mockup-product`;
-    
-    const textValue = document.getElementById('custom_text').value;
-    document.getElementById('mockupText').innerText = textValue || "Tu Mensaje";
-    document.getElementById('mockupText').style.fontFamily = document.getElementById('font_style').value;
-    
-    const textSize = document.getElementById('textSizeSlider').value;
-    document.getElementById('mockupText').style.fontSize = textSize + 'rem';
-    document.getElementById('textSizeLabel').innerText = textSize + 'rem';
-    
-    document.getElementById('summaryProduct').innerText = productType.options[productType.selectedIndex].text;
-    document.getElementById('summarySize').innerText = document.getElementById('size').value;
-    document.getElementById('summaryMaterial').innerText = document.getElementById('material').value;
-    document.getElementById('summaryPlacement').innerText = document.getElementById('placement').value;
-
-    const mockupText = document.getElementById('mockupText');
-    const placement = document.getElementById('placement').value;
-    if (placement === 'Pecho') {
-        mockupText.style.left = '35%';
-        mockupText.style.top = '40%';
-        mockupText.style.fontSize = (textSize * 0.5) + 'rem';
-    } else {
-        mockupText.style.left = '50%';
-        mockupText.style.top = '55%';
-        mockupText.style.fontSize = textSize + 'rem';
+function update3DModel() {
+    const type = document.getElementById('product_type').value;
+    if (currentMesh) {
+        scene.remove(currentMesh);
     }
+    
+    const geom = geometries[type] || geometries['franela'];
+    currentMesh = new THREE.Mesh(geom, mainMaterial);
+    scene.add(currentMesh);
+    
+    // Add handle to mug
+    if (type === 'taza') {
+        const handleGeom = new THREE.TorusGeometry(0.6, 0.15, 16, 100);
+        const handle = new THREE.Mesh(handleGeom, mainMaterial);
+        handle.position.x = 1;
+        currentMesh.add(handle);
+    }
+    
+    updateMaterialProperties();
+    updateCanvasTexture();
+}
+
+function updateMaterialProperties() {
+    const materialSelect = document.getElementById('material');
+    if(!materialSelect) return;
+    const mat = materialSelect.value.toLowerCase();
+    
+    // Defaults
+    mainMaterial.roughness = 0.5;
+    mainMaterial.metalness = 0.1;
+    mainMaterial.transparent = false;
+    mainMaterial.opacity = 1.0;
+    
+    if (mat.includes('cerámica')) {
+        mainMaterial.roughness = 0.1;
+        mainMaterial.metalness = 0.1;
+    } else if (mat.includes('algodón')) {
+        mainMaterial.roughness = 0.9;
+        mainMaterial.metalness = 0.0;
+    } else if (mat.includes('metal') || mat.includes('aluminio') || mat.includes('acero')) {
+        mainMaterial.roughness = 0.2;
+        mainMaterial.metalness = 0.8;
+    } else if (mat.includes('vidrio') || mat.includes('acrílico')) {
+        mainMaterial.transparent = true;
+        mainMaterial.opacity = 0.5;
+        mainMaterial.roughness = 0.05;
+        mainMaterial.metalness = 0.1;
+    } else if (mat.includes('poliéster')) {
+        mainMaterial.roughness = 0.6;
+        mainMaterial.metalness = 0.1;
+    }
+    mainMaterial.needsUpdate = true;
+}
+
+let uploadedImage = null;
+
+function updateCanvasTexture() {
+    const baseColor = document.getElementById('product_color_picker').value;
+    const text = document.getElementById('custom_text').value || "Tu Mensaje";
+    const textColor = document.getElementById('text_color_picker').value;
+    const font = document.getElementById('font_style').value.split(',')[0].replace(/'/g, ''); 
+    const textSize = parseFloat(document.getElementById('textSizeSlider').value) * 60; 
+    const placement = document.getElementById('placement').value;
+    
+    // Background
+    texCtx.fillStyle = baseColor;
+    texCtx.fillRect(0, 0, texCanvas.width, texCanvas.height);
+    
+    // Position
+    let x = texCanvas.width / 2;
+    let y = texCanvas.height / 2;
+    let currentTextSize = textSize;
+    
+    if (placement === 'Pecho') {
+        x = texCanvas.width * 0.3;
+        y = texCanvas.height * 0.4;
+        currentTextSize = textSize * 0.5;
+    } else if (placement === 'Espalda') {
+        const type = document.getElementById('product_type').value;
+        if(type === 'taza' || type === 'filtro' || type === 'short') {
+            x = texCanvas.width * 0.8; 
+        }
+    }
+    
+    // Draw Text
+    texCtx.fillStyle = textColor;
+    texCtx.font = `bold ${currentTextSize}px ${font}, sans-serif`;
+    texCtx.textAlign = 'center';
+    texCtx.textBaseline = 'middle';
+    texCtx.fillText(text, x, y);
+    
+    // Draw Image if uploaded
+    if (uploadedImage) {
+        const imgWidth = 400;
+        const imgHeight = 400 * (uploadedImage.height / uploadedImage.width);
+        texCtx.drawImage(uploadedImage, x - imgWidth/2, y + currentTextSize, imgWidth, imgHeight);
+    }
+    
+    customTexture.needsUpdate = true;
 }
 
 function handleImage(input) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const mockupImg = document.getElementById('mockupImage');
-        mockupImg.src = e.target.result;
-        mockupImg.style.display = 'block';
-    }
-    if (input.files[0]) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                uploadedImage = img;
+                updateCanvasTexture();
+            }
+            img.src = e.target.result;
+        }
         reader.readAsDataURL(input.files[0]);
     }
 }
 
-// Initial update
-updatePreview();
+function updateColorFromPicker(picker, target) {
+    const color = picker.value.toUpperCase();
+    if (target === 'product') {
+        document.getElementById('productColorName').innerText = color;
+    } else {
+        document.getElementById('textColorName').innerText = color;
+    }
+    updateCanvasTexture();
+}
+
+function updatePreview() {
+    const textSize = document.getElementById('textSizeSlider').value;
+    document.getElementById('textSizeLabel').innerText = textSize + 'rem';
+    updateCanvasTexture();
+    updateSummary();
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+const productData = {
+    'franela': { sizes: ['S', 'M', 'L', 'XL', 'XXL'], materials: ['Algodón', 'Poliéster', 'Mezcla'], hasSize: true },
+    'short': { sizes: ['S', 'M', 'L', 'XL'], materials: ['Poliéster Deportivo', 'Algodón'], hasSize: true },
+    'taza': { sizes: [], materials: ['Cerámica', 'Acero Esmaltado', 'Vidrio'], hasSize: false },
+    'llavero': { sizes: [], materials: ['Acrílico', 'Metal', 'Madera MDF'], hasSize: false },
+    'filtro': { sizes: [], materials: ['Aluminio', 'Acero Inoxidable', 'Plástico Térmico'], hasSize: false },
+    'mousepad': { sizes: [], materials: ['Goma antideslizante', 'Tela de microfibra'], hasSize: false }
+};
+
+function updateProductFields() {
+    const productType = document.getElementById('product_type').value;
+    const sizeGroup = document.getElementById('sizeGroup');
+    const sizeSelect = document.getElementById('size');
+    const materialSelect = document.getElementById('material');
+    const grid = document.getElementById('dynamicFieldsGrid');
+    
+    const data = productData[productType];
+    
+    if (data.hasSize) {
+        sizeGroup.style.display = 'block';
+        grid.style.gridTemplateColumns = '1fr 1fr';
+        
+        const currentSize = sizeSelect.value;
+        sizeSelect.innerHTML = '';
+        data.sizes.forEach(size => {
+            const option = document.createElement('option');
+            option.value = size; option.text = size;
+            sizeSelect.appendChild(option);
+        });
+        if (currentSize && Array.from(sizeSelect.options).some(opt => opt.value === currentSize)) sizeSelect.value = currentSize;
+    } else {
+        sizeGroup.style.display = 'none';
+        grid.style.gridTemplateColumns = '1fr';
+        sizeSelect.innerHTML = '';
+    }
+    
+    const currentMaterial = materialSelect.value;
+    materialSelect.innerHTML = '';
+    data.materials.forEach(mat => {
+        const option = document.createElement('option');
+        option.value = mat; option.text = mat;
+        materialSelect.appendChild(option);
+    });
+    if (currentMaterial && Array.from(materialSelect.options).some(opt => opt.value === currentMaterial)) materialSelect.value = currentMaterial;
+    
+    updateSummary();
+    update3DModel();
+}
+
+document.getElementById('product_type').addEventListener('change', updateProductFields);
+document.getElementById('material').addEventListener('change', () => { updateMaterialProperties(); updateSummary(); });
+
+function updateSummary() {
+    const pt = document.getElementById('product_type');
+    document.getElementById('summaryProduct').innerText = pt.options[pt.selectedIndex].text;
+    
+    const sizeStr = productData[pt.value].hasSize && document.getElementById('size').options.length > 0 ? document.getElementById('size').value + ' - ' : '';
+    document.getElementById('summaryDetail').innerText = sizeStr + (document.getElementById('material').value || '');
+    document.getElementById('summaryPlacement').innerText = document.getElementById('placement').value;
+}
+
+updateProductFields();
+init3D();
 </script>
 {% endblock %}
