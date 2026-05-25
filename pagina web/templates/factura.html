@@ -42,7 +42,7 @@
                     <small style="color: #666;">{{ item.details }}</small>
                     {% endif %}
                 </td>
-                <td style="padding: 20px 0; text-align: right;">${{ "%.2f"|format(item.price) }}</td>
+                <td style="padding: 20px 0; text-align: right;">{{ format_price(item.price) }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -51,15 +51,15 @@
     <div style="margin-left: auto; width: 300px;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
             <span>Subtotal:</span>
-            <span>${{ "%.2f"|format(order.total) }}</span>
+            <span>{{ format_price(order.total) }}</span>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
             <span>Envío:</span>
-            <span>$5.00</span>
+            <span>{{ format_price(5.00) }}</span>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 1.5rem; font-weight: 900; border-top: 2px solid #00b350; padding-top: 15px; margin-top: 15px; background: linear-gradient(to right, #00b350, #00ff80); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
             <span>TOTAL:</span>
-            <span>${{ "%.2f"|format(order.total + 5.00) }}</span>
+            <span>{{ format_price(order.total + 5.00) }}</span>
         </div>
     </div>
     

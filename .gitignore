@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache files
+*.pyc
+
+# Local database
+pagina web/instance/tienda.db
+instance/tienda.db
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store

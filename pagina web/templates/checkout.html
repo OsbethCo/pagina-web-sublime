@@ -78,10 +78,10 @@
     
     <div class="checkout-summary" style="flex: 1; background: var(--card-bg); padding: 30px; border-radius: 15px; border: 1px solid var(--border-color); height: fit-content;">
         <h2 style="margin-bottom: 20px; color: var(--primary-grad);">Resumen</h2>
-        <p style="display: flex; justify-content: space-between;"><span>Subtotal:</span> <span>${{ "%.2f"|format(total) }}</span></p>
-        <p style="display: flex; justify-content: space-between;"><span>Envío:</span> <span>$5.00</span></p>
+        <p style="display: flex; justify-content: space-between;"><span>Subtotal:</span> <span>{{ format_price(total) }}</span></p>
+        <p style="display: flex; justify-content: space-between;"><span>Envío:</span> <span>{{ format_price(5.00) }}</span></p>
         <hr style="border-color: var(--border-color); margin: 15px 0;">
-        <h3 style="display: flex; justify-content: space-between; color: var(--primary-grad);"><span>TOTAL:</span> <span>${{ "%.2f"|format(total + 5.00) }}</span></h3>
+        <h3 style="display: flex; justify-content: space-between; color: var(--primary-grad);"><span>TOTAL:</span> <span>{{ format_price(total + 5.00) }}</span></h3>
     </div>
 </div>
 {% endblock %}

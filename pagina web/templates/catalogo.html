@@ -8,18 +8,9 @@
 
 <div class="filter-container">
     <a href="{{ url_for('catalogo') }}" class="filter-btn {{ 'active' if not request.args.get('categoria') }}">Todos</a>
-    <a href="{{ url_for('catalogo', categoria='Taza') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Taza' }}">Tazas</a>
-    <a href="{{ url_for('catalogo', categoria='Camiseta') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Camiseta' }}">Camisetas</a>
-    <a href="{{ url_for('catalogo', categoria='Sudadera') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Sudadera' }}">Sudaderas</a>
-    <a href="{{ url_for('catalogo', categoria='Shorts') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Shorts' }}">Shorts</a>
-    <a href="{{ url_for('catalogo', categoria='Gorras') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Gorras' }}">Gorras</a>
-    <a href="{{ url_for('catalogo', categoria='Termo') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Termo' }}">Termos</a>
-    <a href="{{ url_for('catalogo', categoria='Bolsa') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Bolsa' }}">Bolsas</a>
-    <a href="{{ url_for('catalogo', categoria='Funda') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Funda' }}">Fundas</a>
-    <a href="{{ url_for('catalogo', categoria='Mousepad') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Mousepad' }}">Mousepads</a>
-    <a href="{{ url_for('catalogo', categoria='Boligrafo') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Boligrafo' }}">Bolígrafos</a>
-    <a href="{{ url_for('catalogo', categoria='Llavero') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Llavero' }}">Llaveros</a>
-    <a href="{{ url_for('catalogo', categoria='Placa') }}" class="filter-btn {{ 'active' if request.args.get('categoria') == 'Placa' }}">Placas</a>
+    {% for cat in categorias %}
+    <a href="{{ url_for('catalogo', categoria=cat) }}" class="filter-btn {{ 'active' if request.args.get('categoria') == cat }}">{{ cat }}</a>
+    {% endfor %}
 </div>
 
 <div class="catalog-controls">
@@ -57,7 +48,7 @@
         <div class="product-info">
             <div class="category-tag">{{ p.category }}</div>
             <h3>{{ p.name }}</h3>
-            <p class="price">${{ "%.2f"|format(p.price) }}</p>
+            <p class="price">{{ format_price(p.price) }}</p>
             <div class="card-actions">
                 <a href="{{ url_for('producto', id=p.id) }}" class="btn-outline">Ver</a>
                 <a href="{{ url_for('agregar_carrito', id=p.id) }}" class="btn-secondary">Añadir</a>

@@ -14,17 +14,31 @@
             <div id="threejs-canvas" style="width: 100%; height: 100%; border-radius: 20px; overflow: hidden;"></div>
             <canvas id="textureCanvas" width="1024" height="1024" style="display: none;"></canvas>
         </div>
-        <div class="summary-card" style="padding: 25px; background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border-color);">
-            <h4 style="margin-bottom: 15px; color: #00ff80; font-weight: 900;">TU SELECCIÓN</h4>
-            <ul style="list-style: none; font-size: 0.9rem; line-height: 1.8;">
-                <li><strong>Producto:</strong> <span id="summaryProduct">Franela</span></li>
-                <li><strong>Detalle:</strong> <span id="summaryDetail">M - Algodón</span></li>
-                <li><strong>Ubicación:</strong> <span id="summaryPlacement">Centro Frontal</span></li>
-            </ul>
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
-                <div style="display: flex; justify-content: space-between; font-weight: 900; font-size: 1.4rem;">
-                    <span>TOTAL:</span>
-                    <span style="color: #00ff80;">$30.00</span>
+        <div class="summary-card" style="padding: 20px; background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border-color);">
+            <h4 style="margin-bottom: 12px; color: #00ff80; font-weight: 900;">TU SELECCIÓN</h4>
+            <div style="font-size: 0.9rem; line-height: 1.6; margin-bottom: 12px;">
+                <div><strong>Producto:</strong> <span id="summaryProduct">Franela</span></div>
+                <div><strong>Detalle:</strong> <span id="summaryDetail">M - Algodón</span></div>
+                <div><strong>Ubicación:</strong> <span id="summaryPlacement">Centro Frontal</span></div>
+            </div>
+
+            <div class="price-list">
+                <div class="price-row">
+                    <span class="price-label">Precio base</span>
+                    <span class="price-value" id="priceBase">{{ format_price(20.00) }}</span>
+                </div>
+                <div class="price-row minor">
+                    <span class="price-label">Personalización</span>
+                    <span class="price-value" id="priceCustom">{{ format_price(10.00) }}</span>
+                </div>
+                <div class="price-row minor">
+                    <span class="price-label">Envío</span>
+                    <span class="price-value" id="priceShipping">{{ format_price(0.00) }}</span>
+                </div>
+                <div class="price-divider"></div>
+                <div class="price-row total-row">
+                    <span class="price-label">Total</span>
+                    <span class="price-value" id="priceTotal">{{ format_price(30.00) }}</span>
                 </div>
             </div>
         </div>
@@ -163,6 +177,45 @@
         box-shadow: 0 20px 50px rgba(0,0,0,0.3);
         border: 1px solid rgba(255,255,255,0.1);
     }
+    .price-list {
+        padding: 16px;
+        background: rgba(0,0,0,0.03);
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.06);
+        display: grid;
+        gap: 10px;
+    }
+    .price-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.95rem;
+    }
+    .price-row.minor {
+        color: var(--text-muted);
+    }
+    .price-label {
+        font-weight: 600;
+    }
+    .price-value {
+        font-weight: 700;
+        text-align: right;
+    }
+    .price-divider {
+        height: 1px;
+        width: 100%;
+        background: var(--border-color);
+        margin: 4px 0;
+        border-radius: 2px;
+    }
+    .price-row.total-row {
+        font-size: 1.15rem;
+        font-weight: 900;
+    }
+    .price-row.total-row .price-value {
+        color: #00ff80;
+    }
     
     body.light-mode .mockup-container {
         background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
@@ -179,27 +232,56 @@
 const container = document.getElementById('threejs-canvas');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.z = 5;
+camera.position.set(0, 0.8, 5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
+// Mejor manejo de color y tono para aspecto más elegante
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+// Sombras suaves
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.enableZoom = true;
+controls.target.set(0, 0, 0);
+controls.update();
 
-// Lights
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+// Lights: key + rim + fill for a studio-like elegant look
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.28);
 scene.add(ambientLight);
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-dirLight.position.set(5, 5, 5);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
+dirLight.position.set(5, 8, 5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 1024;
+dirLight.shadow.mapSize.height = 1024;
+dirLight.shadow.radius = 4;
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 50;
 scene.add(dirLight);
-const backLight = new THREE.DirectionalLight(0xffffff, 0.4);
-backLight.position.set(-5, 5, -5);
+
+const backLight = new THREE.DirectionalLight(0xffffff, 0.35);
+backLight.position.set(-6, 4, -3);
 scene.add(backLight);
+
+const fillLight = new THREE.HemisphereLight(0xfff8e6, 0x444455, 0.25);
+scene.add(fillLight);
+
+// Ground plane to catch soft shadows and anchor the model
+const groundGeo = new THREE.PlaneGeometry(20, 20);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0xf4f6f8, roughness: 0.95, metalness: 0.0 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -1.5;
+ground.receiveShadow = true;
+scene.add(ground);
 
 // Texture Canvas
 const texCanvas = document.getElementById('textureCanvas');
@@ -207,17 +289,65 @@ const texCtx = texCanvas.getContext('2d');
 let customTexture = new THREE.CanvasTexture(texCanvas);
 customTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-// Material
-const mainMaterial = new THREE.MeshStandardMaterial({
+// Material: generar una textura de bump (tela) y un envMap simple para acabado elegante
+function createBumpTexture(size=256){
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#777'; ctx.fillRect(0,0,size,size);
+    for(let i=0;i<3000;i++){
+        const x=Math.random()*size, y=Math.random()*size, s= Math.random()*1.8;
+        ctx.fillStyle = `rgba(255,255,255,${0.02+Math.random()*0.05})`;
+        ctx.fillRect(x,y,s,s);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4,4);
+    return tex;
+}
+
+function createEnvTexture(){
+    const c = document.createElement('canvas'); c.width=512; c.height=256;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0,0,0,c.height);
+    g.addColorStop(0,'#eef6ff'); g.addColorStop(0.5,'#fbfdff'); g.addColorStop(1,'#e6eefb');
+    ctx.fillStyle = g; ctx.fillRect(0,0,c.width,c.height);
+    const tex = new THREE.CanvasTexture(c);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    return tex;
+}
+
+const bumpTexture = createBumpTexture(256);
+const envTexture = createEnvTexture();
+// Use the generated environment texture for PBR reflections
+scene.environment = envTexture;
+
+const mainMaterial = new THREE.MeshPhysicalMaterial({
     map: customTexture,
-    roughness: 0.5,
-    metalness: 0.1
+    roughness: 0.55,
+    metalness: 0.05,
+    clearcoat: 0.12,
+    clearcoatRoughness: 0.2,
+    reflectivity: 0.3,
+    envMap: envTexture,
+    envMapIntensity: 0.8,
+    bumpMap: bumpTexture,
+    bumpScale: 0.02
 });
 
-// Geometries map
+// subMaterial para mangas y otros elementos con menor brillo
+const subMaterial = new THREE.MeshPhysicalMaterial({
+    roughness: 0.75,
+    metalness: 0.02,
+    clearcoat: 0.04,
+    envMap: envTexture,
+    envMapIntensity: 0.6,
+    bumpMap: bumpTexture,
+    bumpScale: 0.01
+});
+
+// Geometries map (used for standard non-clothing items)
 const geometries = {
-    'franela': new THREE.BoxGeometry(2.5, 3, 0.4),
-    'short': new THREE.CylinderGeometry(1.2, 1.2, 2, 32),
     'taza': new THREE.CylinderGeometry(1, 1, 2, 32),
     'llavero': new THREE.TorusKnotGeometry(0.6, 0.2, 100, 16),
     'filtro': new THREE.CylinderGeometry(0.7, 0.7, 3.5, 32),
@@ -237,16 +367,112 @@ function update3DModel() {
         scene.remove(currentMesh);
     }
     
-    const geom = geometries[type] || geometries['franela'];
-    currentMesh = new THREE.Mesh(geom, mainMaterial);
-    scene.add(currentMesh);
-    
-    // Add handle to mug
-    if (type === 'taza') {
-        const handleGeom = new THREE.TorusGeometry(0.6, 0.15, 16, 100);
-        const handle = new THREE.Mesh(handleGeom, mainMaterial);
-        handle.position.x = 1;
-        currentMesh.add(handle);
+    if (type === 'franela') {
+        // T-Shirt group
+        const group = new THREE.Group();
+        
+        // Torso: smooth cylinder
+        const torsoGeom = new THREE.CylinderGeometry(0.85, 0.8, 2.2, 32);
+        const torso = new THREE.Mesh(torsoGeom, mainMaterial);
+        torso.position.y = -0.1;
+        torso.castShadow = true; torso.receiveShadow = true;
+        group.add(torso);
+        
+        // Left sleeve
+        const leftSleeveGeom = new THREE.CylinderGeometry(0.3, 0.26, 0.7, 32);
+        const leftSleeve = new THREE.Mesh(leftSleeveGeom, subMaterial);
+        leftSleeve.position.set(-0.95, 0.65, 0);
+        leftSleeve.rotation.z = Math.PI / 4;
+        leftSleeve.rotation.y = -Math.PI / 12;
+        leftSleeve.castShadow = true; leftSleeve.receiveShadow = true;
+        group.add(leftSleeve);
+        
+        // Right sleeve
+        const rightSleeveGeom = new THREE.CylinderGeometry(0.3, 0.26, 0.7, 32);
+        const rightSleeve = new THREE.Mesh(rightSleeveGeom, subMaterial);
+        rightSleeve.position.set(0.95, 0.65, 0);
+        rightSleeve.rotation.z = -Math.PI / 4;
+        rightSleeve.rotation.y = Math.PI / 12;
+        rightSleeve.castShadow = true; rightSleeve.receiveShadow = true;
+        group.add(rightSleeve);
+        
+        // Collar/Neckband
+        const collarGeom = new THREE.TorusGeometry(0.42, 0.05, 16, 100);
+        const collar = new THREE.Mesh(collarGeom, subMaterial);
+        collar.position.set(0, 1.0, 0);
+        collar.rotation.x = Math.PI / 2;
+        collar.castShadow = false; collar.receiveShadow = true;
+        group.add(collar);
+        
+        currentMesh = group;
+        scene.add(currentMesh);
+        
+        } else if (type === 'short') {
+            // Sports Shorts group (improved for front-facing short style)
+            const group = new THREE.Group();
+
+            // Left leg (slightly tapered)
+            const leftLegGeom = new THREE.CylinderGeometry(0.36, 0.40, 0.9, 48, 1, false);
+            const leftLeg = new THREE.Mesh(leftLegGeom, mainMaterial);
+            leftLeg.position.set(-0.38, -0.25, 0);
+            leftLeg.rotation.z = Math.PI / 48;
+            leftLeg.castShadow = true; leftLeg.receiveShadow = true;
+            group.add(leftLeg);
+
+            // Right leg
+            const rightLegGeom = new THREE.CylinderGeometry(0.36, 0.40, 0.9, 48, 1, false);
+            const rightLeg = new THREE.Mesh(rightLegGeom, mainMaterial);
+            rightLeg.position.set(0.38, -0.25, 0);
+            rightLeg.rotation.z = -Math.PI / 48;
+            rightLeg.castShadow = true; rightLeg.receiveShadow = true;
+            group.add(rightLeg);
+
+            // Waistband as a separate slightly higher mesh
+            const bandGeom = new THREE.CylinderGeometry(0.78, 0.78, 0.16, 48);
+            const waistband = new THREE.Mesh(bandGeom, subMaterial);
+            waistband.position.y = 0.45;
+            waistband.castShadow = false; waistband.receiveShadow = true;
+            group.add(waistband);
+
+            // Hem rings (thin torus) for bottom detail
+            const hemLeft = new THREE.TorusGeometry(0.36, 0.03, 16, 100);
+            const hemMeshLeft = new THREE.Mesh(hemLeft, subMaterial);
+            hemMeshLeft.rotation.x = Math.PI / 2;
+            hemMeshLeft.position.set(-0.38, -0.75, 0);
+            hemMeshLeft.castShadow = false; hemMeshLeft.receiveShadow = true;
+            group.add(hemMeshLeft);
+
+            const hemRight = new THREE.TorusGeometry(0.36, 0.03, 16, 100);
+            const hemMeshRight = new THREE.Mesh(hemRight, subMaterial);
+            hemMeshRight.rotation.x = Math.PI / 2;
+            hemMeshRight.position.set(0.38, -0.75, 0);
+            hemMeshRight.castShadow = false; hemMeshRight.receiveShadow = true;
+            group.add(hemMeshRight);
+
+            // Slight forward tilt for a natural floating look
+            group.rotation.x = -0.02;
+
+            currentMesh = group;
+            scene.add(currentMesh);
+        
+        
+        currentMesh = group;
+        scene.add(currentMesh);
+        
+    } else {
+        // Standard shapes for other items
+        const geom = geometries[type] || new THREE.BoxGeometry(2.5, 3, 0.4);
+        currentMesh = new THREE.Mesh(geom, mainMaterial);
+        currentMesh.castShadow = true; currentMesh.receiveShadow = true;
+        scene.add(currentMesh);
+        
+        if (type === 'taza') {
+            const handleGeom = new THREE.TorusGeometry(0.6, 0.15, 16, 100);
+            const handle = new THREE.Mesh(handleGeom, mainMaterial);
+            handle.position.x = 1;
+            handle.castShadow = true; handle.receiveShadow = true;
+            currentMesh.add(handle);
+        }
     }
     
     updateMaterialProperties();
@@ -283,6 +509,15 @@ function updateMaterialProperties() {
         mainMaterial.metalness = 0.1;
     }
     mainMaterial.needsUpdate = true;
+    
+    // Synchronize subMaterial properties & color
+    const baseColor = document.getElementById('product_color_picker').value;
+    subMaterial.color.set(baseColor);
+    subMaterial.roughness = mainMaterial.roughness;
+    subMaterial.metalness = mainMaterial.metalness;
+    subMaterial.transparent = mainMaterial.transparent;
+    subMaterial.opacity = mainMaterial.opacity;
+    subMaterial.needsUpdate = true;
 }
 
 let uploadedImage = null;
@@ -298,6 +533,17 @@ function updateCanvasTexture() {
     // Background
     texCtx.fillStyle = baseColor;
     texCtx.fillRect(0, 0, texCanvas.width, texCanvas.height);
+    // Subtle fabric/noise overlay to make preview more realistic
+    const noiseAlpha = 0.06;
+    texCtx.fillStyle = `rgba(255,255,255,${noiseAlpha})`;
+    for (let i = 0; i < 1200; i++) {
+        const nx = Math.random() * texCanvas.width;
+        const ny = Math.random() * texCanvas.height;
+        const s = 1 + Math.random() * 2;
+        texCtx.globalAlpha = 0.02 + Math.random() * 0.04;
+        texCtx.fillRect(nx, ny, s, s);
+    }
+    texCtx.globalAlpha = 1.0;
     
     // Position
     let x = texCanvas.width / 2;
@@ -329,7 +575,54 @@ function updateCanvasTexture() {
         texCtx.drawImage(uploadedImage, x - imgWidth/2, y + currentTextSize, imgWidth, imgHeight);
     }
     
+    // If short, draw central seam and hem lines on the texture to emulate stitched details
+    const productType = document.getElementById('product_type').value;
+    if (productType === 'short') {
+        const midX = texCanvas.width / 2;
+        const topY = texCanvas.height * 0.12;
+        const botY = texCanvas.height * 0.86;
+        texCtx.strokeStyle = 'rgba(0,0,0,0.12)';
+        texCtx.lineWidth = Math.max(3, texCanvas.width * 0.008);
+        texCtx.lineCap = 'round';
+        texCtx.beginPath();
+        texCtx.moveTo(midX, topY);
+        texCtx.lineTo(midX, botY);
+        texCtx.stroke();
+
+        // Hem arcs for left & right legs
+        texCtx.lineWidth = Math.max(2, texCanvas.width * 0.006);
+        texCtx.strokeStyle = 'rgba(0,0,0,0.08)';
+        const leftCx = texCanvas.width * 0.28;
+        const rightCx = texCanvas.width * 0.72;
+        const hemY = texCanvas.height * 0.78;
+        texCtx.beginPath();
+        texCtx.ellipse(leftCx, hemY, texCanvas.width * 0.18, texCanvas.height * 0.06, 0, 0, Math.PI);
+        texCtx.stroke();
+        texCtx.beginPath();
+        texCtx.ellipse(rightCx, hemY, texCanvas.width * 0.18, texCanvas.height * 0.06, 0, 0, Math.PI);
+        texCtx.stroke();
+    }
+    
     customTexture.needsUpdate = true;
+
+    // Calcular precios y actualizar el resumen (cliente-side)
+    const basePrices = { 'franela': 20.00, 'short': 18.00, 'taza': 12.00, 'llavero': 5.00, 'filtro': 25.00, 'mousepad': 10.00 };
+    const base = basePrices[productType] || 15.00;
+    const hasText = (document.getElementById('custom_text').value || '').trim().length > 0;
+    const hasImage = !!uploadedImage;
+    const custom = (hasText || hasImage) ? 10.00 : 0.00;
+    const shipping = 0.00;
+    const total = base + custom + shipping;
+
+    function jsFormatPrice(v){ return '$' + Number(v).toFixed(2); }
+
+    document.getElementById('priceBase').innerText = jsFormatPrice(base);
+    document.getElementById('priceCustom').innerText = jsFormatPrice(custom);
+    document.getElementById('priceShipping').innerText = jsFormatPrice(shipping);
+    document.getElementById('priceTotal').innerText = jsFormatPrice(total);
+    // También actualizar el total en el botón o resumen si existiera
+    const totalSpan = document.querySelector('.summary-card [id="priceTotal"]');
+    if (totalSpan) totalSpan.innerText = jsFormatPrice(total);
 }
 
 function handleImage(input) {
@@ -420,6 +713,24 @@ function updateProductFields() {
         materialSelect.appendChild(option);
     });
     if (currentMaterial && Array.from(materialSelect.options).some(opt => opt.value === currentMaterial)) materialSelect.value = currentMaterial;
+    
+    // Sincronización automática de color y material por defecto para Franela y Short
+    if (window.lastProductType !== productType) {
+        if (productType === 'franela') {
+            document.getElementById('product_color_picker').value = '#ffffff';
+            document.getElementById('productColorName').innerText = '#FFFFFF';
+            if (materialSelect.options.length > 0) {
+                materialSelect.value = 'Algodón';
+            }
+        } else if (productType === 'short') {
+            document.getElementById('product_color_picker').value = '#cccccc';
+            document.getElementById('productColorName').innerText = '#CCCCCC';
+            if (materialSelect.options.length > 0) {
+                materialSelect.value = 'Poliéster Deportivo';
+            }
+        }
+        window.lastProductType = productType;
+    }
     
     updateSummary();
     update3DModel();
