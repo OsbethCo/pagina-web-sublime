@@ -35,4 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('theme', theme);
         });
     }
+
+    function initHeroCarousel() {
+        const slides = document.querySelectorAll('.hero-slide');
+        if (!slides.length) return;
+
+        let currentIndex = 0;
+        setInterval(() => {
+            slides[currentIndex].classList.remove('active');
+            currentIndex = (currentIndex + 1) % slides.length;
+            slides[currentIndex].classList.add('active');
+        }, 6000);
+    }
+
+    initHeroCarousel();
 });

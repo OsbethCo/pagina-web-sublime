@@ -1,5 +1,10 @@
 {% extends 'base.html' %}
 
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/legal.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/help.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="legal-page" style="max-width: 980px;">
 

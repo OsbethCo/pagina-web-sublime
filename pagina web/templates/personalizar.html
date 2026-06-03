@@ -1,22 +1,36 @@
 {% extends 'base.html' %}
 
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/personalizar.css') }}">
+{% endblock %}
+
 {% block content %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<div class="page-header" style="text-align: center; margin: 3rem 0;">
-    <h2 class="hero-title-gradient" style="font-size: 3rem;">CREA TU PROPIO ESTILO</h2>
-    <p style="color: var(--text-muted); margin-top: 10px;">Personaliza cada detalle y obtén un producto único.</p>
-</div><div class="asymmetric-dashboard">
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+<div class="page-header">
+    <h2 class="hero-title-gradient">CREA TU PROPIO ESTILO</h2>
+    <p>Personaliza cada detalle y obtén un producto único.</p>
+</div>
+<div class="asymmetric-dashboard">
     <!-- Panel izquierdo: Vista previa fija en vivo -->
     <div class="sticky-preview">
-        <h3 style="margin-bottom: 20px; font-weight: 900; letter-spacing: 2px; color: var(--primary-grad);">ESTUDIO DE DISEÑO</h3>
-        <div class="mockup-container" id="mockupContainer" style="cursor: grab;">
-            <div id="threejs-canvas" style="width: 100%; height: 100%; border-radius: 20px; overflow: hidden;"></div>
-            <canvas id="textureCanvas" width="1024" height="1024" style="display: none;"></canvas>
+        <h3 class="preview-header">ESTUDIO DE DISEÑO</h3>
+        <div class="mockup-container" id="mockupContainer">
+            <div id="threejs-canvas"></div>
+            <canvas id="textureCanvas" width="1024" height="1024"></canvas>
+            <div class="preview-tip">Gira el producto con el ratón o pellizca para hacer zoom.</div>
+            <div id="previewError" class="preview-error">
+                <div class="preview-error-inner">
+                    <div id="previewErrorMsg">Error cargando vista previa 3D.</div>
+                    <button id="previewRetryBtn" class="btn-primary" type="button">Reintentar</button>
+                </div>
+            </div>
         </div>
-        <div class="summary-card" style="padding: 20px; background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border-color);">
-            <h4 style="margin-bottom: 12px; color: #00ff80; font-weight: 900;">TU SELECCIÓN</h4>
-            <div style="font-size: 0.9rem; line-height: 1.6; margin-bottom: 12px;">
+        <div class="summary-card" aria-live="polite">
+            <h4>TU SELECCIÓN</h4>
+            <div class="summary-preview">
                 <div><strong>Producto:</strong> <span id="summaryProduct">Franela</span></div>
                 <div><strong>Detalle:</strong> <span id="summaryDetail">M - Algodón</span></div>
                 <div><strong>Ubicación:</strong> <span id="summaryPlacement">Centro Frontal</span></div>
@@ -53,38 +67,38 @@
                 <span class="section-label">Paso 01</span>
                 <h3>El Producto</h3>
                 
-                <div class="form-group" style="margin-top: 15px;">
-                    <label style="font-size: 0.8rem; font-weight: bold;">TIPO DE PRODUCTO</label>
-                    <select name="product_type" id="product_type" onchange="updateProductFields()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                <div class="form-group">
+                    <label class="field-label" for="product_type">TIPO DE PRODUCTO</label>
+                    <select class="select-field" name="product_type" id="product_type" onchange="updateProductFields()">
                         <option value="franela" data-icon="fa-shirt">Franela (Camiseta)</option>
-                        <option value="short" data-icon="fa-person-running">Short Deportivo</option>
                         <option value="taza" data-icon="fa-mug-hot">Taza</option>
+                        <option value="pen" data-icon="fa-pen">Bolígrafo</option>
                         <option value="llavero" data-icon="fa-key">Llavero</option>
                         <option value="filtro" data-icon="fa-bottle-water">Termo / Filtro</option>
+                        <option value="gorra" data-icon="fa-baseball-cap">Gorra</option>
                         <option value="mousepad" data-icon="fa-note-sticky">Mousepad</option>
                     </select>
+                    <div class="field-note">Elige el producto que quieres personalizar. El modelo se actualizará al instante.</div>
                 </div>
 
-                <div class="form-grid" id="dynamicFieldsGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-grid" id="dynamicFieldsGrid">
                     <div class="form-group" id="sizeGroup">
-                        <label style="font-size: 0.8rem; font-weight: bold;">TALLA</label>
-                        <select name="size" id="size" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
-                        </select>
+                        <label class="field-label" for="size">TALLA</label>
+                        <select class="select-field" name="size" id="size" onchange="updatePreview()"></select>
                     </div>
                     <div class="form-group" id="materialGroup">
-                        <label style="font-size: 0.8rem; font-weight: bold;">MATERIAL</label>
-                        <select name="material" id="material" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
-                        </select>
+                        <label class="field-label" for="material">MATERIAL</label>
+                        <select class="select-field" name="material" id="material" onchange="updatePreview()"></select>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label style="font-size: 0.8rem; font-weight: bold;">COLOR DE BASE</label>
-                    <div class="color-picker-wrapper" style="margin-top: 5px;">
+                    <label class="field-label" for="product_color_picker">COLOR DE BASE</label>
+                    <div class="color-picker-wrapper">
                         <div class="chromatic-wheel">
                             <input type="color" name="product_color" id="product_color_picker" value="#ffffff" oninput="updateColorFromPicker(this, 'product')">
                         </div>
-                        <span id="productColorName" style="font-size: 0.9rem; font-weight: bold; color: var(--primary-grad);">#FFFFFF</span>
+                        <span id="productColorName" class="field-note">#FFFFFF</span>
                     </div>
                 </div>
             </section>
@@ -94,15 +108,15 @@
                 <span class="section-label">Paso 02</span>
                 <h3>Tipografía y Estilo</h3>
                 
-                <div class="form-group" style="margin-top: 15px;">
-                    <label style="font-size: 0.8rem; font-weight: bold;">MENSAJE PERSONALIZADO</label>
-                    <input type="text" name="custom_text" id="custom_text" oninput="updatePreview()" placeholder="Tu frase aquí..." style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                <div class="form-group">
+                    <label class="field-label" for="custom_text">MENSAJE PERSONALIZADO</label>
+                    <input class="text-field" type="text" name="custom_text" id="custom_text" oninput="updatePreview()" placeholder="Tu frase aquí...">
                 </div>
 
-                <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-grid">
                     <div class="form-group">
-                        <label style="font-size: 0.8rem; font-weight: bold;">ESTILO FUENTE</label>
-                        <select name="font_style" id="font_style" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                        <label class="field-label" for="font_style">ESTILO FUENTE</label>
+                        <select class="select-field" name="font_style" id="font_style" onchange="updatePreview()">
                             <option value="Inter, sans-serif" class="font-modern">Moderno</option>
                             <option value="'Playfair Display', serif" class="font-elegant">Elegante</option>
                             <option value="'Comic Sans MS', cursive" class="font-comic">Divertido</option>
@@ -110,8 +124,8 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label style="font-size: 0.8rem; font-weight: bold;">POSICIÓN</label>
-                        <select name="placement" id="placement" onchange="updatePreview()" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 12px;">
+                        <label class="field-label" for="placement">POSICIÓN</label>
+                        <select class="select-field" name="placement" id="placement" onchange="updatePreview()">
                             <option value="Centro Frontal">Centro Frontal</option>
                             <option value="Pecho">Pecho Izq.</option>
                             <option value="Espalda">Espalda</option>
@@ -120,20 +134,20 @@
                 </div>
 
                 <div class="form-group">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                        <label style="font-size: 0.8rem; font-weight: bold;">ESCALA DE TEXTO</label>
-                        <span id="textSizeLabel" style="color: #00ff80; font-weight: bold; font-size: 0.8rem;">1.5rem</span>
+                    <div class="text-scale-row">
+                        <span class="field-label">ESCALA DE TEXTO</span>
+                        <span id="textSizeLabel" class="field-note text-highlight">1.5rem</span>
                     </div>
                     <input type="range" min="0.5" max="3" step="0.1" value="1.5" class="custom-range" id="textSizeSlider" oninput="updatePreview()">
                 </div>
 
                 <div class="form-group">
-                    <label style="font-size: 0.8rem; font-weight: bold;">COLOR DEL TEXTO</label>
-                    <div class="color-picker-wrapper" style="margin-top: 5px;">
+                    <label class="field-label" for="text_color_picker">COLOR DEL TEXTO</label>
+                    <div class="color-picker-wrapper">
                         <div class="chromatic-wheel">
                             <input type="color" name="text_color" id="text_color_picker" value="#000000" oninput="updateColorFromPicker(this, 'text')">
                         </div>
-                        <span id="textColorName" style="font-size: 0.9rem; font-weight: bold; color: var(--primary-grad);">#000000</span>
+                        <span id="textColorName" class="field-note">#000000</span>
                     </div>
                 </div>
             </section>
@@ -143,108 +157,47 @@
                 <span class="section-label">Paso 03</span>
                 <h3>Gráficos y Carga</h3>
                 
-                <div class="form-group" style="margin-top: 15px; padding: 20px; background: var(--section-bg); border-radius: 15px; border: 1px dashed var(--primary-grad);">
-                    <label style="display: block; margin-bottom: 10px; font-weight: bold;">SUBE TU LOGO / ARTE</label>
-                    <input type="file" name="design_image" id="design_image" onchange="handleImage(this)" style="width: 100%; color: var(--text-color); cursor: pointer;">
+                <div class="form-group file-upload-group">
+                    <label class="field-label" for="design_image">SUBE TU LOGO / ARTE</label>
+                    <input type="file" name="design_image" id="design_image" onchange="handleImage(this)">
+                    <div class="field-note">Aceptamos JPG, PNG o SVG. El diseño se mostrará en la vista previa si la geometría del producto lo permite.</div>
                 </div>
 
-                <button type="submit" class="btn-primary" style="width: 100%; padding: 20px; font-size: 1.2rem; margin-top: 20px;">
-                    AÑADIR AL CARRITO <i class="fa-solid fa-cart-shopping" style="margin-left: 10px;"></i>
+                <button type="submit" class="btn-primary">
+                    AÑADIR AL CARRITO <i class="fa-solid fa-cart-shopping"></i>
                 </button>
             </section>
         </form>
     </div>
 </div>
 
-<style>
-    /* CSS para el efecto 3D */
-    .sticky-preview {
-        perspective: 1000px;
-    }
-    
-    .mockup-container {
-        width: 100%;
-        height: 400px; /* Tamaño más accesible */
-        aspect-ratio: auto;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
-        border-radius: 25px;
-        margin-bottom: 30px;
-        overflow: hidden;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    .price-list {
-        padding: 16px;
-        background: rgba(0,0,0,0.03);
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.06);
-        display: grid;
-        gap: 10px;
-    }
-    .price-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        font-size: 0.95rem;
-    }
-    .price-row.minor {
-        color: var(--text-muted);
-    }
-    .price-label {
-        font-weight: 600;
-    }
-    .price-value {
-        font-weight: 700;
-        text-align: right;
-    }
-    .price-divider {
-        height: 1px;
-        width: 100%;
-        background: var(--border-color);
-        margin: 4px 0;
-        border-radius: 2px;
-    }
-    .price-row.total-row {
-        font-size: 1.15rem;
-        font-weight: 900;
-    }
-    .price-row.total-row .price-value {
-        color: #00ff80;
-    }
-    
-    body.light-mode .mockup-container {
-        background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
-        box-shadow: 0 20px 50px rgba(0,0,0,0.1);
-    }
-
-    .mockup-container:active {
-        cursor: grabbing !important;
-    }
-</style>
+<!-- Styles moved to pagina web/static/css/personalizar.css -->
 
 <script>
 // Three.js Setup
 const container = document.getElementById('threejs-canvas');
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
 camera.position.set(0, 0.8, 5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
-// Mejor manejo de color y tono para aspecto más elegante
+renderer.setClearColor(0x000000, 0);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
-// Sombras suaves
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
+
+function resizeRenderer() {
+    const width = container.clientWidth || container.offsetWidth;
+    const height = container.clientHeight || container.offsetHeight;
+    if (!width || !height) return;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+}
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -281,13 +234,40 @@ const ground = new THREE.Mesh(groundGeo, groundMat);
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -1.5;
 ground.receiveShadow = true;
+ground.visible = false; // Remove the superficial floor from the preview scene
 scene.add(ground);
 
 // Texture Canvas
 const texCanvas = document.getElementById('textureCanvas');
 const texCtx = texCanvas.getContext('2d');
 let customTexture = new THREE.CanvasTexture(texCanvas);
+customTexture.encoding = THREE.sRGBEncoding;
+customTexture.wrapS = THREE.RepeatWrapping;
+customTexture.wrapT = THREE.RepeatWrapping;
 customTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+const gltfLoader = new THREE.GLTFLoader();
+// Configure DRACO decoder to support compressed GLTFs if present
+try {
+    const dracoLoader = new THREE.DRACOLoader();
+    // Use Google's hosted decoder for reliability across environments
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+    gltfLoader.setDRACOLoader(dracoLoader);
+} catch (e) {
+    console.warn('DRACOLoader not available or failed to initialize', e);
+}
+const modelMap = {
+    'franela': "{{ url_for('static', filename='3d/camisa.glb') }}",
+    'taza': "{{ url_for('static', filename='3d/taza.glb') }}",
+    'llavero': "{{ url_for('static', filename='3d/llavero_rec.glb') }}",
+    'filtro': "{{ url_for('static', filename='3d/filtro.glb') }}",
+    'gorra': "{{ url_for('static', filename='3d/gorra.glb') }}",
+    'pen': "{{ url_for('static', filename='3d/pen.glb') }}"
+};
+const fallbackGeometries = {
+    'mousepad': new THREE.BoxGeometry(3, 2, 0.05)
+};
+let modelGroup = null;
 
 // Material: generar una textura de bump (tela) y un envMap simple para acabado elegante
 function createBumpTexture(size=256){
@@ -347,136 +327,289 @@ const subMaterial = new THREE.MeshPhysicalMaterial({
 });
 
 // Geometries map (used for standard non-clothing items)
-const geometries = {
-    'taza': new THREE.CylinderGeometry(1, 1, 2, 32),
-    'llavero': new THREE.TorusKnotGeometry(0.6, 0.2, 100, 16),
-    'filtro': new THREE.CylinderGeometry(0.7, 0.7, 3.5, 32),
-    'mousepad': new THREE.BoxGeometry(3, 2, 0.05)
-};
-
 let currentMesh = null;
+// Incremental token to ignore stale async loads
+let currentLoadId = 0;
 
 function init3D() {
-    update3DModel();
-    animate();
+    requestAnimationFrame(() => {
+        resizeRenderer();
+        animate();
+        update3DModel();
+    });
 }
 
-function update3DModel() {
+function loadModel(url) {
+    return new Promise((resolve, reject) => {
+        // Primary attempt using GLTFLoader.load
+        gltfLoader.load(url, gltf => resolve(gltf.scene || gltf.scenes[0]), undefined, err => {
+            console.warn('GLTFLoader.load failed, will attempt fetch+parse', err);
+            fetch(url).then(resp => {
+                if (!resp.ok) throw new Error('Fetch failed with status ' + resp.status);
+                return resp.arrayBuffer();
+            }).then(buf => {
+                try {
+                    gltfLoader.parse(buf, '', parsed => {
+                        resolve(parsed.scene || parsed.scenes[0]);
+                    }, parseErr => {
+                        console.error('GLTF parse error after fetch:', parseErr);
+                        reject(parseErr);
+                    });
+                } catch (e) {
+                    console.error('Exception during GLTF parse:', e);
+                    reject(e);
+                }
+            }).catch(fetchErr => {
+                console.error('Fetch fallback failed for', url, fetchErr);
+                reject(fetchErr);
+            });
+        });
+    });
+}
+
+// Remove any non-product floor/ground geometry from loaded models
+function cleanModelMeshes(object, type) {
+    if (!object) return;
+    const candidates = [];
+    object.traverse(node => {
+        if (!node.isMesh) return;
+        const name = (node.name || '').toLowerCase();
+        const isFloorName = /floor|ground|plane|suelo|base|baseplate|plano|piso|terrain/.test(name);
+        if (isFloorName) {
+            candidates.push(node);
+        }
+    });
+    candidates.forEach(node => {
+        if (node.parent) {
+            node.parent.remove(node);
+        }
+    });
+
+    // If the hat looks cut off, lift it a bit and tighten the fit
+    if (type === 'gorra') {
+        object.position.y += 0.08;
+        object.scale.multiplyScalar(1.02);
+    }
+}
+
+function getProductOrientation(type) {
+    switch (type) {
+        case 'taza':
+        case 'filtro':
+            return new THREE.Euler(0, Math.PI / 2, 0);
+        case 'gorra':
+            return new THREE.Euler(0, 0, 0);
+        case 'llavero':
+            return new THREE.Euler(0, Math.PI, 0);
+        case 'pen':
+            return new THREE.Euler(0, Math.PI / 2, 0);
+        case 'short':
+        case 'mousepad':
+            return new THREE.Euler(0, 0, 0);
+        default:
+            return new THREE.Euler(0, 0, 0);
+    }
+}
+
+function normalizeProductModel(object, type) {
+    if (!object) return;
+    cleanModelMeshes(object, type);
+    const orientation = getProductOrientation(type);
+    object.rotation.copy(orientation);
+    object.updateMatrixWorld(true);
+
+    const box = new THREE.Box3().setFromObject(object);
+    if (!box.isEmpty()) {
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        object.position.sub(center);
+        object.position.y += size.y * 0.5;
+        object.position.x = 0;
+        object.position.z = 0;
+    }
+    object.updateMatrixWorld(true);
+}
+
+function getProductFrontDirection(type) {
+    switch (type) {
+        case 'gorra':
+            return new THREE.Vector3(0, 0.15, 1).normalize();
+        case 'taza':
+        case 'filtro':
+            return new THREE.Vector3(0, 0.1, 1).normalize();
+        case 'llavero':
+        case 'pen':
+            return new THREE.Vector3(0, 0, 1).normalize();
+        case 'short':
+        case 'mousepad':
+            return new THREE.Vector3(0, 0.05, 1).normalize();
+        default:
+            return new THREE.Vector3(0, 0, 1).normalize();
+    }
+}
+
+// Fit and center an object so it fully appears in the camera view
+function fitModelToView(object, padding = 1.2, frontDir = null) {
+    if (!object) return;
+    const box = new THREE.Box3().setFromObject(object);
+    if (!box.isEmpty()) {
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxSize = Math.max(size.x, size.y, size.z);
+        const fov = camera.fov * (Math.PI / 180);
+        const distance = Math.abs(maxSize / 2 / Math.tan(fov / 2)) * padding;
+
+        const dir = frontDir ? frontDir.clone().normalize() : new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+        camera.position.copy(center.clone().add(dir.multiplyScalar(distance)));
+        camera.lookAt(center);
+
+        camera.near = Math.max(0.01, distance / 100);
+        camera.far = Math.max(1000, distance * 10);
+        camera.updateProjectionMatrix();
+
+        controls.target.copy(center);
+        controls.update();
+    }
+}
+
+// Preview error UI helpers
+const previewErrorEl = document.getElementById('previewError');
+const previewErrorMsg = document.getElementById('previewErrorMsg');
+const previewRetryBtn = document.getElementById('previewRetryBtn');
+function showPreviewError(msg) {
+    if (previewErrorMsg) previewErrorMsg.innerText = msg;
+    if (previewErrorEl) previewErrorEl.style.display = 'flex';
+}
+function clearPreviewError() {
+    if (previewErrorEl) previewErrorEl.style.display = 'none';
+    if (previewErrorMsg) previewErrorMsg.innerText = '';
+}
+if (previewRetryBtn) previewRetryBtn.addEventListener('click', () => { clearPreviewError(); update3DModel(); });
+
+async function update3DModel() {
+    // Increment load token to mark this request as current
+    const myLoadId = ++currentLoadId;
+
     const type = document.getElementById('product_type').value;
     if (currentMesh) {
         scene.remove(currentMesh);
+        if (currentMesh.traverse) {
+            currentMesh.traverse(node => {
+                if (node.isMesh) {
+                    node.geometry?.dispose();
+                    node.material?.dispose();
+                }
+            });
+        }
+        currentMesh = null;
     }
-    
-    if (type === 'franela') {
-        // T-Shirt group
-        const group = new THREE.Group();
-        
-        // Torso: smooth cylinder
-        const torsoGeom = new THREE.CylinderGeometry(0.85, 0.8, 2.2, 32);
-        const torso = new THREE.Mesh(torsoGeom, mainMaterial);
-        torso.position.y = -0.1;
-        torso.castShadow = true; torso.receiveShadow = true;
-        group.add(torso);
-        
-        // Left sleeve
-        const leftSleeveGeom = new THREE.CylinderGeometry(0.3, 0.26, 0.7, 32);
-        const leftSleeve = new THREE.Mesh(leftSleeveGeom, subMaterial);
-        leftSleeve.position.set(-0.95, 0.65, 0);
-        leftSleeve.rotation.z = Math.PI / 4;
-        leftSleeve.rotation.y = -Math.PI / 12;
-        leftSleeve.castShadow = true; leftSleeve.receiveShadow = true;
-        group.add(leftSleeve);
-        
-        // Right sleeve
-        const rightSleeveGeom = new THREE.CylinderGeometry(0.3, 0.26, 0.7, 32);
-        const rightSleeve = new THREE.Mesh(rightSleeveGeom, subMaterial);
-        rightSleeve.position.set(0.95, 0.65, 0);
-        rightSleeve.rotation.z = -Math.PI / 4;
-        rightSleeve.rotation.y = Math.PI / 12;
-        rightSleeve.castShadow = true; rightSleeve.receiveShadow = true;
-        group.add(rightSleeve);
-        
-        // Collar/Neckband
-        const collarGeom = new THREE.TorusGeometry(0.42, 0.05, 16, 100);
-        const collar = new THREE.Mesh(collarGeom, subMaterial);
-        collar.position.set(0, 1.0, 0);
-        collar.rotation.x = Math.PI / 2;
-        collar.castShadow = false; collar.receiveShadow = true;
-        group.add(collar);
-        
-        currentMesh = group;
-        scene.add(currentMesh);
-        
-        } else if (type === 'short') {
-            // Sports Shorts group (improved for front-facing short style)
-            const group = new THREE.Group();
 
-            // Left leg (slightly tapered)
-            const leftLegGeom = new THREE.CylinderGeometry(0.36, 0.40, 0.9, 48, 1, false);
-            const leftLeg = new THREE.Mesh(leftLegGeom, mainMaterial);
-            leftLeg.position.set(-0.38, -0.25, 0);
-            leftLeg.rotation.z = Math.PI / 48;
-            leftLeg.castShadow = true; leftLeg.receiveShadow = true;
-            group.add(leftLeg);
-
-            // Right leg
-            const rightLegGeom = new THREE.CylinderGeometry(0.36, 0.40, 0.9, 48, 1, false);
-            const rightLeg = new THREE.Mesh(rightLegGeom, mainMaterial);
-            rightLeg.position.set(0.38, -0.25, 0);
-            rightLeg.rotation.z = -Math.PI / 48;
-            rightLeg.castShadow = true; rightLeg.receiveShadow = true;
-            group.add(rightLeg);
-
-            // Waistband as a separate slightly higher mesh
-            const bandGeom = new THREE.CylinderGeometry(0.78, 0.78, 0.16, 48);
-            const waistband = new THREE.Mesh(bandGeom, subMaterial);
-            waistband.position.y = 0.45;
-            waistband.castShadow = false; waistband.receiveShadow = true;
-            group.add(waistband);
-
-            // Hem rings (thin torus) for bottom detail
-            const hemLeft = new THREE.TorusGeometry(0.36, 0.03, 16, 100);
-            const hemMeshLeft = new THREE.Mesh(hemLeft, subMaterial);
-            hemMeshLeft.rotation.x = Math.PI / 2;
-            hemMeshLeft.position.set(-0.38, -0.75, 0);
-            hemMeshLeft.castShadow = false; hemMeshLeft.receiveShadow = true;
-            group.add(hemMeshLeft);
-
-            const hemRight = new THREE.TorusGeometry(0.36, 0.03, 16, 100);
-            const hemMeshRight = new THREE.Mesh(hemRight, subMaterial);
-            hemMeshRight.rotation.x = Math.PI / 2;
-            hemMeshRight.position.set(0.38, -0.75, 0);
-            hemMeshRight.castShadow = false; hemMeshRight.receiveShadow = true;
-            group.add(hemMeshRight);
-
-            // Slight forward tilt for a natural floating look
-            group.rotation.x = -0.02;
-
-            currentMesh = group;
+    if (modelMap[type]) {
+        const url = modelMap[type];
+        try {
+            clearPreviewError();
+            const model = await loadModel(url);
+            if (myLoadId !== currentLoadId) {
+                console.warn('Stale GLB load ignored for', url);
+                model.traverse(node => { if (node.isMesh) { node.geometry?.dispose(); node.material?.dispose(); } });
+                return;
+            }
+            normalizeProductModel(model, type);
+            model.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.geometry?.attributes?.uv && child.geometry.attributes.uv.count > 0) {
+                        child.material = mainMaterial;
+                    } else {
+                        child.material = subMaterial;
+                    }
+                }
+            });
+            model.scale.set(1.05, 1.05, 1.05);
+            currentMesh = model;
             scene.add(currentMesh);
-        
-        
-        currentMesh = group;
-        scene.add(currentMesh);
-        
+            try {
+                const dir = getProductFrontDirection(type);
+                fitModelToView(currentMesh, 1.2, dir);
+            } catch (e) {
+                console.warn('fitModelToView failed', e);
+            }
+        } catch (error) {
+            console.error('Error cargando modelo 3D:', url, error);
+            showPreviewError('No se pudo cargar el modelo 3D: ' + url + '. Revisa la consola.');
+            buildFallbackType(type, myLoadId);
+        }
     } else {
-        // Standard shapes for other items
-        const geom = geometries[type] || new THREE.BoxGeometry(2.5, 3, 0.4);
-        currentMesh = new THREE.Mesh(geom, mainMaterial);
-        currentMesh.castShadow = true; currentMesh.receiveShadow = true;
-        scene.add(currentMesh);
-        
+        buildFallbackType(type, myLoadId);
+    }
+
+    updateMaterialProperties();
+    updateCanvasTexture();
+}
+
+function buildFallbackType(type, loadId) {
+    // If a newer load began, ignore this fallback
+    if (typeof loadId !== 'undefined' && loadId !== currentLoadId) {
+        console.warn('Skipped fallback because a newer load started');
+        return;
+    }
+
+    // Legacy primitive fallback: only keep minimal generic shapes for items
+    // that don't have a GLB model. Removed specialized 'franela' primitive
+    // so that 'franela' always uses the GLB model when available.
+    const group = new THREE.Group();
+    if (type === 'short') {
+        const leftLegGeom = new THREE.CylinderGeometry(0.36, 0.40, 0.9, 48, 1, false);
+        const leftLeg = new THREE.Mesh(leftLegGeom, mainMaterial);
+        leftLeg.position.set(-0.38, -0.25, 0);
+        leftLeg.rotation.z = Math.PI / 48;
+        leftLeg.castShadow = true; leftLeg.receiveShadow = true;
+        group.add(leftLeg);
+
+        const rightLegGeom = new THREE.CylinderGeometry(0.36, 0.40, 0.9, 48, 1, false);
+        const rightLeg = new THREE.Mesh(rightLegGeom, mainMaterial);
+        rightLeg.position.set(0.38, -0.25, 0);
+        rightLeg.rotation.z = -Math.PI / 48;
+        rightLeg.castShadow = true; rightLeg.receiveShadow = true;
+        group.add(rightLeg);
+
+        const bandGeom = new THREE.CylinderGeometry(0.78, 0.78, 0.16, 48);
+        const waistband = new THREE.Mesh(bandGeom, subMaterial);
+        waistband.position.y = 0.45;
+        waistband.castShadow = false; waistband.receiveShadow = true;
+        group.add(waistband);
+
+        const hemLeft = new THREE.TorusGeometry(0.36, 0.03, 16, 100);
+        const hemMeshLeft = new THREE.Mesh(hemLeft, subMaterial);
+        hemMeshLeft.rotation.x = Math.PI / 2;
+        hemMeshLeft.position.set(-0.38, -0.75, 0);
+        hemMeshLeft.castShadow = false; hemMeshLeft.receiveShadow = true;
+        group.add(hemMeshLeft);
+
+        const hemRight = new THREE.TorusGeometry(0.36, 0.03, 16, 100);
+        const hemMeshRight = new THREE.Mesh(hemRight, subMaterial);
+        hemMeshRight.rotation.x = Math.PI / 2;
+        hemMeshRight.position.set(0.38, -0.75, 0);
+        hemMeshRight.castShadow = false; hemMeshRight.receiveShadow = true;
+        group.add(hemMeshRight);
+        group.rotation.x = -0.02;
+    } else {
+        const geom = fallbackGeometries[type] || new THREE.BoxGeometry(2.5, 3, 0.4);
+        const mesh = new THREE.Mesh(geom, mainMaterial);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        group.add(mesh);
         if (type === 'taza') {
             const handleGeom = new THREE.TorusGeometry(0.6, 0.15, 16, 100);
             const handle = new THREE.Mesh(handleGeom, mainMaterial);
             handle.position.x = 1;
             handle.castShadow = true; handle.receiveShadow = true;
-            currentMesh.add(handle);
+            mesh.add(handle);
         }
     }
-    
-    updateMaterialProperties();
-    updateCanvasTexture();
+    currentMesh = group;
+    scene.add(currentMesh);
+    try { fitModelToView(currentMesh); } catch (e) { console.warn('fitModelToView failed for fallback', e); }
 }
 
 function updateMaterialProperties() {
@@ -529,7 +662,20 @@ function updateCanvasTexture() {
     const font = document.getElementById('font_style').value.split(',')[0].replace(/'/g, ''); 
     const textSize = parseFloat(document.getElementById('textSizeSlider').value) * 60; 
     const placement = document.getElementById('placement').value;
-    
+    const productType = document.getElementById('product_type').value;
+
+    const frontPositions = {
+        'franela': { x: 0.5, y: 0.5, scale: 1.0 },
+        'short': { x: 0.5, y: 0.52, scale: 0.9 },
+        'taza': { x: 0.5, y: 0.58, scale: 0.8 },
+        'filtro': { x: 0.5, y: 0.55, scale: 0.8 },
+        'gorra': { x: 0.5, y: 0.45, scale: 0.9 },
+        'llavero': { x: 0.5, y: 0.5, scale: 0.7 },
+        'pen': { x: 0.5, y: 0.5, scale: 0.65 },
+        'mousepad': { x: 0.5, y: 0.5, scale: 1.0 }
+    };
+    const defaultFront = frontPositions[productType] || { x: 0.5, y: 0.5, scale: 1.0 };
+
     // Background
     texCtx.fillStyle = baseColor;
     texCtx.fillRect(0, 0, texCanvas.width, texCanvas.height);
@@ -546,19 +692,28 @@ function updateCanvasTexture() {
     texCtx.globalAlpha = 1.0;
     
     // Position
-    let x = texCanvas.width / 2;
-    let y = texCanvas.height / 2;
-    let currentTextSize = textSize;
+    let x = texCanvas.width * defaultFront.x;
+    let y = texCanvas.height * defaultFront.y;
+    let currentTextSize = textSize * defaultFront.scale;
     
     if (placement === 'Pecho') {
-        x = texCanvas.width * 0.3;
-        y = texCanvas.height * 0.4;
-        currentTextSize = textSize * 0.5;
-    } else if (placement === 'Espalda') {
-        const type = document.getElementById('product_type').value;
-        if(type === 'taza' || type === 'filtro' || type === 'short') {
-            x = texCanvas.width * 0.8; 
+        x = texCanvas.width * 0.34;
+        y = texCanvas.height * 0.42;
+        currentTextSize = textSize * 0.65;
+        if (productType === 'taza' || productType === 'filtro') {
+            x = texCanvas.width * 0.5;
+            y = texCanvas.height * 0.45;
+            currentTextSize = textSize * 0.5;
         }
+        if (productType === 'gorra') {
+            x = texCanvas.width * 0.5;
+            y = texCanvas.height * 0.35;
+            currentTextSize = textSize * 0.75;
+        }
+    } else if (placement === 'Espalda') {
+        x = texCanvas.width * 0.5;
+        y = texCanvas.height * 0.62;
+        currentTextSize = textSize * 0.8;
     }
     
     // Draw Text
@@ -570,13 +725,13 @@ function updateCanvasTexture() {
     
     // Draw Image if uploaded
     if (uploadedImage) {
-        const imgWidth = 400;
-        const imgHeight = 400 * (uploadedImage.height / uploadedImage.width);
-        texCtx.drawImage(uploadedImage, x - imgWidth/2, y + currentTextSize, imgWidth, imgHeight);
+        const maxWidth = texCanvas.width * 0.6 * defaultFront.scale;
+        const imgWidth = Math.min(maxWidth, 400);
+        const imgHeight = imgWidth * (uploadedImage.height / uploadedImage.width);
+        texCtx.drawImage(uploadedImage, x - imgWidth / 2, y + currentTextSize * 0.6, imgWidth, imgHeight);
     }
     
     // If short, draw central seam and hem lines on the texture to emulate stitched details
-    const productType = document.getElementById('product_type').value;
     if (productType === 'short') {
         const midX = texCanvas.width / 2;
         const topY = texCanvas.height * 0.12;
@@ -606,7 +761,7 @@ function updateCanvasTexture() {
     customTexture.needsUpdate = true;
 
     // Calcular precios y actualizar el resumen (cliente-side)
-    const basePrices = { 'franela': 20.00, 'short': 18.00, 'taza': 12.00, 'llavero': 5.00, 'filtro': 25.00, 'mousepad': 10.00 };
+    const basePrices = { 'franela': 20.00, 'short': 18.00, 'taza': 12.00, 'pen': 8.00, 'llavero': 5.00, 'filtro': 25.00, 'gorra': 15.00, 'mousepad': 10.00 };
     const base = basePrices[productType] || 15.00;
     const hasText = (document.getElementById('custom_text').value || '').trim().length > 0;
     const hasImage = !!uploadedImage;
@@ -664,9 +819,7 @@ function animate() {
 }
 
 window.addEventListener('resize', () => {
-    camera.aspect = container.clientWidth / container.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    resizeRenderer();
 });
 
 const productData = {
@@ -675,6 +828,8 @@ const productData = {
     'taza': { sizes: [], materials: ['Cerámica', 'Acero Esmaltado', 'Vidrio'], hasSize: false },
     'llavero': { sizes: [], materials: ['Acrílico', 'Metal', 'Madera MDF'], hasSize: false },
     'filtro': { sizes: [], materials: ['Aluminio', 'Acero Inoxidable', 'Plástico Térmico'], hasSize: false },
+    'gorra': { sizes: [], materials: ['Algodón', 'Poliéster'], hasSize: false },
+    'pen': { sizes: [], materials: ['Metal', 'Plástico', 'Acero'], hasSize: false },
     'mousepad': { sizes: [], materials: ['Goma antideslizante', 'Tela de microfibra'], hasSize: false }
 };
 
@@ -732,12 +887,16 @@ function updateProductFields() {
         window.lastProductType = productType;
     }
     
-    updateSummary();
     update3DModel();
+    updatePreview();
 }
 
 document.getElementById('product_type').addEventListener('change', updateProductFields);
-document.getElementById('material').addEventListener('change', () => { updateMaterialProperties(); updateSummary(); });
+document.getElementById('material').addEventListener('change', () => {
+    updateMaterialProperties();
+    updateCanvasTexture();
+    updateSummary();
+});
 
 function updateSummary() {
     const pt = document.getElementById('product_type');

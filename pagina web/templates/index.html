@@ -1,7 +1,18 @@
 {% extends 'base.html' %}
 
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
 {% block content %}
 <header class="hero">
+    <div class="hero-slider">
+        <div class="hero-slide active" style="background-image: url('{{ url_for('static', filename='images/botella-agua-blanca-reutilizable_53876-145536.avif') }}');"></div>
+        <div class="hero-slide" style="background-image: url('{{ url_for('static', filename='images/pexels-cottonbro-5274535.jpg.jpeg') }}');"></div>
+        <div class="hero-slide" style="background-image: url('{{ url_for('static', filename='images/pexels-rdne-7842513.jpg.jpeg') }}');"></div>
+        <div class="hero-slide" style="background-image: url('{{ url_for('static', filename='images/xuan-thu-le-2OXNxfTt3kQ-unsplash.jpg.jpeg') }}');"></div>
+    </div>
+    <div class="hero-overlay"></div>
     <div class="hero-content">
         <h1 class="hero-title-gradient">SUBLIMACIÓN</h1>
         <h1 class="hero-title-solid">SIN LÍMITES</h1>

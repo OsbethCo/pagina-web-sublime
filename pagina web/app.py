@@ -9,7 +9,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SHARED_DB_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'Sublime', 'BD', 'database.db'))
 SHARED_SQL_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'Sublime', 'BD', 'database.sql'))
 
-# Use the shared DB file for both raw sqlite and SQLAlchemy so data is consistent locally
+# Utilice el archivo de base de datos compartido tanto para SQLite sin procesar como para SQLAlchemy para que los datos sean consistentes localmente.
 os.makedirs(os.path.dirname(SHARED_DB_PATH), exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{SHARED_DB_PATH}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -141,14 +141,13 @@ def get_or_create_cart(conn, cliente_id):
 
 
 def get_or_create_custom_product(conn, name='Producto Personalizado', description='Producto personalizado', price=30.0):
-    # Intentar reutilizar un producto personalizado existente
-    existing = conn.execute('SELECT id_producto FROM productos WHERE nombre = ? LIMIT 1', (name,)).fetchone()
-    if existing:
-        return existing['id_producto']
-
+    # Siempre crear un nuevo registro para cada personalización
+    # Dejar un nombre legible pero único para evitar que distintos diseños compartan el mismo id
+    import time
+    unique_name = f"{name} - {int(time.time()*1000)}"
     cursor = conn.execute(
-        'INSERT INTO productos (nombre, descripcion, precio_venta, activo) VALUES (?, ?, ?, 1)',
-        (name, description, price)
+        'INSERT INTO productos (nombre, descripcion, costo, precio_venta, activo) VALUES (?, ?, ?, ?, 1)',
+        (unique_name, description, price, price)
     )
     conn.commit()
     return cursor.lastrowid
@@ -166,7 +165,8 @@ def load_cart_from_db():
         'SELECT dc.id_detalle, dc.id_producto, dc.cantidad, dc.precio_unitario, p.nombre AS name, p.descripcion '
         'FROM detalle_carrito dc '
         'LEFT JOIN productos p ON dc.id_producto = p.id_producto '
-        'WHERE dc.id_carrito = ?',
+        'WHERE dc.id_carrito = ? '
+        'ORDER BY dc.id_detalle ASC',
         (carrito_id,)
     ).fetchall()
     conn.close()
@@ -319,9 +319,9 @@ def personalizar():
         if text:
             custom_details += f" con texto: '{text}' ({font}) en {placement}"
             
-        # Crear producto personalizado en DB
+        # Crear producto personalizado en DB con nombre identificable
         conn = get_shared_db()
-        product_id = get_or_create_custom_product(conn)
+        product_id = get_or_create_custom_product(conn, name=f"Personalizado - {product_type.capitalize()}", description=custom_details, price=30.0)
         conn.close()
         
         flash('Diseño personalizado añadido al carrito.', 'success')

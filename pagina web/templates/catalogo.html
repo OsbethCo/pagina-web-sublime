@@ -1,5 +1,9 @@
 {% extends 'base.html' %}
 
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/catalogo.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="page-header text-center" style="margin: 4rem 0;">
     <h1 class="hero-title-solid" style="font-size: 3.5rem;">Nuestros Productos</h1>
