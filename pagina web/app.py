@@ -116,7 +116,7 @@ def get_or_create_client(conn, email, nombre, direccion):
         return cliente['id_cliente']
 
     cursor = conn.execute(
-        'INSERT INTO clientes (nombre, correo, contraseña, direccion) VALUES (?, ?, ?, ?)',
+        'INSERT INTO clientes VALUES (NULL, ?, ?, ?, ?)',
         (nombre, email, '', direccion)
     )
     conn.commit()
@@ -205,6 +205,63 @@ def save_cart_to_db(cart_items):
     conn.close()
 
 
+def get_cart_count():
+    return len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
+
+
+def load_current_user():
+    if 'user_id' not in session:
+        return None
+    conn = get_shared_db()
+    row = conn.execute(
+        'SELECT id_usuario, nombre, correo FROM usuarios WHERE id_usuario = ? LIMIT 1',
+        (session['user_id'],)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+
+    return {
+        'id': row['id_usuario'],
+        'username': row['nombre'],
+        'email': row['correo'],
+        'phone': ''
+    }
+
+
+def merge_guest_cart_into_db(guest_cart):
+    if 'user_id' not in session or not guest_cart:
+        return
+    if not isinstance(guest_cart, list):
+        return
+
+    db_cart = load_cart_from_db()
+    for item in guest_cart:
+        if not isinstance(item, dict):
+            continue
+        item_id = item.get('id')
+        quantity = item.get('quantity', 1)
+        price = item.get('price', 0)
+        if item_id is None:
+            continue
+
+        existing = next((ci for ci in db_cart if ci.get('id') == item_id), None)
+        if existing:
+            existing['quantity'] = existing.get('quantity', 1) + quantity
+        else:
+            db_cart.append({
+                'id': item_id,
+                'name': item.get('name', 'Producto'),
+                'price': price,
+                'quantity': quantity,
+                'details': item.get('details', '')
+            })
+
+    save_cart_to_db(db_cart)
+    session.pop('cart', None)
+    session.modified = True
+
+
 # Configurar SQLAlchemy y asegurar existencia de la DB compartida.
 db.init_app(app)
 ensure_shared_db()
@@ -231,7 +288,13 @@ def inject_exchange_rate():
         formatted_usd = f"${usd_val:,.2f}"
         formatted_bs = f"{bs_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         return f"{formatted_usd} / {formatted_bs} Bs"
-    return dict(tasa_cambio=tasa_cambio, format_price=format_price)
+
+    return dict(
+        tasa_cambio=tasa_cambio,
+        format_price=format_price,
+        cart_count=get_cart_count(),
+        current_username=session.get('username')
+    )
 
 
 # Semillas en la base de datos compartida (esquema SQL en español)
@@ -384,6 +447,22 @@ def carrito():
     total = sum(item['price'] * item.get('quantity', 1) for item in cart)
     return render_template('carrito.html', cart=cart, total=total, cart_count=len(cart))
 
+@app.route('/eliminar_carrito/<int:index>')
+def eliminar_carrito(index):
+    if 'user_id' in session:
+        cart = load_cart_from_db()
+        if isinstance(cart, list) and 0 <= index < len(cart):
+            cart.pop(index)
+            save_cart_to_db(cart)
+    else:
+        cart = session.get('cart', [])
+        if isinstance(cart, list) and 0 <= index < len(cart):
+            cart.pop(index)
+            session['cart'] = cart
+            session.modified = True
+
+    return redirect(url_for('carrito'))
+
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
     if 'user_id' in session:
@@ -490,27 +569,33 @@ def factura(order_id):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    cart_count = get_cart_count()
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
 
         conn = get_shared_db()
         user = conn.execute(
-            'SELECT id_usuario, nombre, correo, contraseña FROM usuarios WHERE correo = ? OR nombre = ? LIMIT 1',
+            'SELECT id_usuario, nombre, correo, "contraseña" AS password FROM usuarios WHERE correo = ? OR nombre = ? LIMIT 1',
             (username, username)
         ).fetchone()
         conn.close()
 
-        if user and user['contraseña'] == password:
+        if user and user['password'] == password:
             session['user_id'] = user['id_usuario']
             session['username'] = user['nombre']
             session['user_email'] = user['correo']
+
+            guest_cart = session.get('cart', [])
+            merge_guest_cart_into_db(guest_cart)
+
             flash(f'¡Bienvenido de nuevo, {user["nombre"]}!', 'success')
             return redirect(url_for('home'))
         else:
             flash('Usuario o contraseña incorrectos.', 'error')
 
-    return render_template('login.html')
+    return render_template('login.html', cart_count=cart_count)
 
 
 @app.route('/registro', methods=['GET', 'POST'])
@@ -533,7 +618,7 @@ def registro():
             role = conn.execute('SELECT id_rol FROM roles WHERE nombre = ? LIMIT 1', ('Trabajador',)).fetchone()
             role_id = role['id_rol'] if role else 2
             conn.execute(
-                'INSERT INTO usuarios (nombre, correo, contraseña, id_rol) VALUES (?, ?, ?, ?)',
+                'INSERT INTO usuarios VALUES (NULL, ?, ?, ?, ?)',
                 (username, email, password, role_id)
             )
             conn.commit()
@@ -591,8 +676,13 @@ def privacidad():
 def perfil():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+    user = load_current_user()
+    if not user:
+        flash('No se encontró información de usuario. Inicia sesión nuevamente.', 'error')
+        return redirect(url_for('logout'))
+
     cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
-    return render_template('perfil.html', cart_count=cart_count)
+    return render_template('perfil.html', user=user, cart_count=cart_count)
 
 
 if __name__ == '__main__':
