@@ -161,6 +161,20 @@
                     <label class="field-label" for="design_image">SUBE TU LOGO / ARTE</label>
                     <input type="file" name="design_image" id="design_image" onchange="handleImage(this)">
                     <div class="field-note">Aceptamos JPG, PNG o SVG. El diseño se mostrará en la vista previa si la geometría del producto lo permite.</div>
+                    
+                    <!-- Contenedor de vista previa de imagen cargada -->
+                    <div id="imagePreviewContainer" class="uploaded-image-preview-container" style="display: none; margin-top: 15px;">
+                        <span class="field-label">Imagen cargada:</span>
+                        <div class="image-preview-card">
+                            <img id="imagePreviewThumb" src="" alt="Miniatura">
+                            <div class="image-preview-details">
+                                <span id="imagePreviewName" class="image-name">logo.png</span>
+                                <button type="button" class="btn-remove-image" onclick="removeUploadedImage()">
+                                    <i class="fa-solid fa-trash-can"></i> Quitar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn-primary">
@@ -515,8 +529,10 @@ async function update3DModel() {
                 return;
             }
             normalizeProductModel(model, type);
+            let meshCount = 0;
             model.traverse(child => {
                 if (child.isMesh) {
+                    meshCount++;
                     child.castShadow = true;
                     child.receiveShadow = true;
                     if (child.geometry?.attributes?.uv && child.geometry.attributes.uv.count > 0) {
@@ -526,14 +542,28 @@ async function update3DModel() {
                     }
                 }
             });
-            model.scale.set(1.05, 1.05, 1.05);
-            currentMesh = model;
-            scene.add(currentMesh);
-            try {
-                const dir = getProductFrontDirection(type);
-                fitModelToView(currentMesh, 1.2, dir);
-            } catch (e) {
-                console.warn('fitModelToView failed', e);
+            
+            if (meshCount === 0) {
+                console.warn('El modelo cargado no tiene mallas. Usando fallback procedural para:', type);
+                if (model.traverse) {
+                    model.traverse(node => {
+                        if (node.isMesh) {
+                            node.geometry?.dispose();
+                            node.material?.dispose();
+                        }
+                    });
+                }
+                buildFallbackType(type, myLoadId);
+            } else {
+                model.scale.set(1.05, 1.05, 1.05);
+                currentMesh = model;
+                scene.add(currentMesh);
+                try {
+                    const dir = getProductFrontDirection(type);
+                    fitModelToView(currentMesh, 1.2, dir);
+                } catch (e) {
+                    console.warn('fitModelToView failed', e);
+                }
             }
         } catch (error) {
             console.error('Error cargando modelo 3D:', url, error);
@@ -594,22 +624,48 @@ function buildFallbackType(type, loadId) {
         hemMeshRight.castShadow = false; hemMeshRight.receiveShadow = true;
         group.add(hemMeshRight);
         group.rotation.x = -0.02;
+    } else if (type === 'taza') {
+        // Beautiful procedural mug
+        const cupGeom = new THREE.CylinderGeometry(0.75, 0.75, 1.6, 32);
+        const cup = new THREE.Mesh(cupGeom, mainMaterial);
+        cup.castShadow = true; cup.receiveShadow = true;
+        group.add(cup);
+
+        const handleGeom = new THREE.TorusGeometry(0.45, 0.12, 16, 32, Math.PI * 1.2);
+        const handle = new THREE.Mesh(handleGeom, subMaterial);
+        handle.position.set(-0.7, 0, 0);
+        handle.rotation.z = Math.PI * 0.9;
+        handle.castShadow = true; handle.receiveShadow = true;
+        group.add(handle);
+    } else if (type === 'gorra') {
+        // Beautiful procedural cap
+        const domeGeom = new THREE.SphereGeometry(0.75, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const dome = new THREE.Mesh(domeGeom, mainMaterial);
+        dome.castShadow = true; dome.receiveShadow = true;
+        group.add(dome);
+
+        const visorGeom = new THREE.BoxGeometry(1.1, 0.04, 0.65);
+        const visor = new THREE.Mesh(visorGeom, subMaterial);
+        visor.position.set(0, -0.05, 0.6);
+        visor.rotation.x = 0.12;
+        visor.castShadow = true; visor.receiveShadow = true;
+        group.add(visor);
+        
+        group.position.y = 0.15;
     } else {
         const geom = fallbackGeometries[type] || new THREE.BoxGeometry(2.5, 3, 0.4);
         const mesh = new THREE.Mesh(geom, mainMaterial);
         mesh.castShadow = true; mesh.receiveShadow = true;
         group.add(mesh);
-        if (type === 'taza') {
-            const handleGeom = new THREE.TorusGeometry(0.6, 0.15, 16, 100);
-            const handle = new THREE.Mesh(handleGeom, mainMaterial);
-            handle.position.x = 1;
-            handle.castShadow = true; handle.receiveShadow = true;
-            mesh.add(handle);
-        }
     }
     currentMesh = group;
     scene.add(currentMesh);
-    try { fitModelToView(currentMesh); } catch (e) { console.warn('fitModelToView failed for fallback', e); }
+    try {
+        const dir = getProductFrontDirection(type);
+        fitModelToView(currentMesh, 1.2, dir);
+    } catch (e) {
+        console.warn('fitModelToView failed for fallback', e);
+    }
 }
 
 function updateMaterialProperties() {
@@ -782,17 +838,43 @@ function updateCanvasTexture() {
 
 function handleImage(input) {
     if (input.files && input.files[0]) {
+        const file = input.files[0];
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = new Image();
             img.onload = function() {
                 uploadedImage = img;
+                
+                // Mostrar vista previa local
+                const thumb = document.getElementById('imagePreviewThumb');
+                const nameSpan = document.getElementById('imagePreviewName');
+                const container = document.getElementById('imagePreviewContainer');
+                if (thumb && nameSpan && container) {
+                    thumb.src = e.target.result;
+                    nameSpan.innerText = file.name;
+                    container.style.display = 'block';
+                }
+                
                 updateCanvasTexture();
             }
             img.src = e.target.result;
         }
-        reader.readAsDataURL(input.files[0]);
+        reader.readAsDataURL(file);
     }
+}
+
+function removeUploadedImage() {
+    uploadedImage = null;
+    
+    // Limpiar input de archivo
+    const input = document.getElementById('design_image');
+    if (input) input.value = '';
+    
+    // Ocultar vista previa local
+    const container = document.getElementById('imagePreviewContainer');
+    if (container) container.style.display = 'none';
+    
+    updateCanvasTexture();
 }
 
 function updateColorFromPicker(picker, target) {
