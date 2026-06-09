@@ -1,0 +1,1026 @@
+{% extends 'base.html' %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/personalizar.css') }}">
+{% endblock %}
+
+{% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+<div class="page-header">
+    <h2 class="hero-title-gradient">CREA TU PROPIO ESTILO</h2>
+    <p>Personaliza cada detalle y obtén un producto único.</p>
+</div>
+<div class="asymmetric-dashboard">
+    <!-- Panel izquierdo: Vista previa fija en vivo -->
+    <div class="sticky-preview">
+        <h3 class="preview-header">ESTUDIO DE DISEÑO</h3>
+        <div class="mockup-container" id="mockupContainer">
+            <div id="threejs-canvas"></div>
+            <canvas id="textureCanvas" width="1024" height="1024"></canvas>
+            <div class="preview-tip">Gira el producto con el ratón o pellizca para hacer zoom.</div>
+            <div id="previewError" class="preview-error">
+                <div class="preview-error-inner">
+                    <div id="previewErrorMsg">Error cargando vista previa 3D.</div>
+                    <button id="previewRetryBtn" class="btn-primary" type="button">Reintentar</button>
+                </div>
+            </div>
+        </div>
+        <div class="summary-card" aria-live="polite">
+            <h4>TU SELECCIÓN</h4>
+            <div class="summary-preview">
+                <div><strong>Producto:</strong> <span id="summaryProduct">Franela</span></div>
+                <div><strong>Detalle:</strong> <span id="summaryDetail">M - Algodón</span></div>
+                <div><strong>Ubicación:</strong> <span id="summaryPlacement">Centro Frontal</span></div>
+            </div>
+
+            <div class="price-list">
+                <div class="price-row">
+                    <span class="price-label">Precio base</span>
+                    <span class="price-value" id="priceBase">{{ format_price(20.00) }}</span>
+                </div>
+                <div class="price-row minor">
+                    <span class="price-label">Personalización</span>
+                    <span class="price-value" id="priceCustom">{{ format_price(10.00) }}</span>
+                </div>
+                <div class="price-row minor">
+                    <span class="price-label">Envío</span>
+                    <span class="price-value" id="priceShipping">{{ format_price(0.00) }}</span>
+                </div>
+                <div class="price-divider"></div>
+                <div class="price-row total-row">
+                    <span class="price-label">Total</span>
+                    <span class="price-value" id="priceTotal">{{ format_price(30.00) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel derecho: Secciones escalonadas-->
+    <div class="controls-flow">
+        <form action="{{ url_for('personalizar') }}" method="POST" enctype="multipart/form-data" id="customForm">
+            
+            <!-- parte 1 -->
+            <section class="staggered-section">
+                <span class="section-label">Paso 01</span>
+                <h3>El Producto</h3>
+                
+                <div class="form-group">
+                    <label class="field-label" for="product_type">TIPO DE PRODUCTO</label>
+                    <select class="select-field" name="product_type" id="product_type" onchange="updateProductFields()">
+                        <option value="franela" data-icon="fa-shirt">Franela (Camiseta)</option>
+                        <option value="taza" data-icon="fa-mug-hot">Taza</option>
+                        <option value="pen" data-icon="fa-pen">Bolígrafo</option>
+                        <option value="llavero" data-icon="fa-key">Llavero</option>
+                        <option value="filtro" data-icon="fa-bottle-water">Termo / Filtro</option>
+                        <option value="gorra" data-icon="fa-baseball-cap">Gorra</option>
+                        <option value="mousepad" data-icon="fa-note-sticky">Mousepad</option>
+                    </select>
+                    <div class="field-note">Elige el producto que quieres personalizar. El modelo se actualizará al instante.</div>
+                </div>
+
+                <div class="form-grid" id="dynamicFieldsGrid">
+                    <div class="form-group" id="sizeGroup">
+                        <label class="field-label" for="size">TALLA</label>
+                        <select class="select-field" name="size" id="size" onchange="updatePreview()"></select>
+                    </div>
+                    <div class="form-group" id="materialGroup">
+                        <label class="field-label" for="material">MATERIAL</label>
+                        <select class="select-field" name="material" id="material" onchange="updatePreview()"></select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="field-label" for="product_color_picker">COLOR DE BASE</label>
+                    <div class="color-picker-wrapper">
+                        <div class="chromatic-wheel">
+                            <input type="color" name="product_color" id="product_color_picker" value="#ffffff" oninput="updateColorFromPicker(this, 'product')">
+                        </div>
+                        <span id="productColorName" class="field-note">#FFFFFF</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- parte 2 -->
+            <section class="staggered-section">
+                <span class="section-label">Paso 02</span>
+                <h3>Tipografía y Estilo</h3>
+                
+                <div class="form-group">
+                    <label class="field-label" for="custom_text">MENSAJE PERSONALIZADO</label>
+                    <input class="text-field" type="text" name="custom_text" id="custom_text" oninput="updatePreview()" placeholder="Tu frase aquí...">
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="field-label" for="font_style">ESTILO FUENTE</label>
+                        <select class="select-field" name="font_style" id="font_style" onchange="updatePreview()">
+                            <option value="Inter, sans-serif" class="font-modern">Moderno</option>
+                            <option value="'Playfair Display', serif" class="font-elegant">Elegante</option>
+                            <option value="'Comic Sans MS', cursive" class="font-comic">Divertido</option>
+                            <option value="'Impact', sans-serif" class="font-impact">Fuerte</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="field-label" for="placement">POSICIÓN</label>
+                        <select class="select-field" name="placement" id="placement" onchange="updatePreview()">
+                            <option value="Centro Frontal">Centro Frontal</option>
+                            <option value="Pecho">Pecho Izq.</option>
+                            <option value="Espalda">Espalda</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="text-scale-row">
+                        <span class="field-label">ESCALA DE TEXTO</span>
+                        <span id="textSizeLabel" class="field-note text-highlight">1.5rem</span>
+                    </div>
+                    <input type="range" min="0.5" max="3" step="0.1" value="1.5" class="custom-range" id="textSizeSlider" oninput="updatePreview()">
+                </div>
+
+                <div class="form-group">
+                    <label class="field-label" for="text_color_picker">COLOR DEL TEXTO</label>
+                    <div class="color-picker-wrapper">
+                        <div class="chromatic-wheel">
+                            <input type="color" name="text_color" id="text_color_picker" value="#000000" oninput="updateColorFromPicker(this, 'text')">
+                        </div>
+                        <span id="textColorName" class="field-note">#000000</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- parte 3 -->
+            <section class="staggered-section">
+                <span class="section-label">Paso 03</span>
+                <h3>Gráficos y Carga</h3>
+                
+                <div class="form-group file-upload-group">
+                    <label class="field-label" for="design_image">SUBE TU LOGO / ARTE</label>
+                    <input type="file" name="design_image" id="design_image" onchange="handleImage(this)">
+                    <div class="field-note">Aceptamos JPG, PNG o SVG. El diseño se mostrará en la vista previa si la geometría del producto lo permite.</div>
+                    
+                    <!-- Contenedor de vista previa de imagen cargada -->
+                    <div id="imagePreviewContainer" class="uploaded-image-preview-container" style="display: none; margin-top: 15px;">
+                        <span class="field-label">Imagen cargada:</span>
+                        <div class="image-preview-card">
+                            <img id="imagePreviewThumb" src="" alt="Miniatura">
+                            <div class="image-preview-details">
+                                <span id="imagePreviewName" class="image-name">logo.png</span>
+                                <button type="button" class="btn-remove-image" onclick="removeUploadedImage()">
+                                    <i class="fa-solid fa-trash-can"></i> Quitar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    AÑADIR AL CARRITO <i class="fa-solid fa-cart-shopping"></i>
+                </button>
+            </section>
+        </form>
+    </div>
+</div>
+
+<!-- Styles moved to pagina web/static/css/personalizar.css -->
+
+<script>
+// Three.js Setup
+const container = document.getElementById('threejs-canvas');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+camera.position.set(0, 0.8, 5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0x000000, 0);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+function resizeRenderer() {
+    const width = container.clientWidth || container.offsetWidth;
+    const height = container.clientHeight || container.offsetHeight;
+    if (!width || !height) return;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+}
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.enableZoom = true;
+controls.target.set(0, 0, 0);
+controls.update();
+
+// Lights: key + rim + fill for a studio-like elegant look
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.28);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
+dirLight.position.set(5, 8, 5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 1024;
+dirLight.shadow.mapSize.height = 1024;
+dirLight.shadow.radius = 4;
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 50;
+scene.add(dirLight);
+
+const backLight = new THREE.DirectionalLight(0xffffff, 0.35);
+backLight.position.set(-6, 4, -3);
+scene.add(backLight);
+
+const fillLight = new THREE.HemisphereLight(0xfff8e6, 0x444455, 0.25);
+scene.add(fillLight);
+
+// Ground plane to catch soft shadows and anchor the model
+const groundGeo = new THREE.PlaneGeometry(20, 20);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0xf4f6f8, roughness: 0.95, metalness: 0.0 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -1.5;
+ground.receiveShadow = true;
+ground.visible = false; // Remove the superficial floor from the preview scene
+scene.add(ground);
+
+// Texture Canvas
+const texCanvas = document.getElementById('textureCanvas');
+const texCtx = texCanvas.getContext('2d');
+let customTexture = new THREE.CanvasTexture(texCanvas);
+customTexture.encoding = THREE.sRGBEncoding;
+customTexture.wrapS = THREE.RepeatWrapping;
+customTexture.wrapT = THREE.RepeatWrapping;
+customTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+const gltfLoader = new THREE.GLTFLoader();
+// Configure DRACO decoder to support compressed GLTFs if present
+try {
+    const dracoLoader = new THREE.DRACOLoader();
+    // Use Google's hosted decoder for reliability across environments
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+    gltfLoader.setDRACOLoader(dracoLoader);
+} catch (e) {
+    console.warn('DRACOLoader not available or failed to initialize', e);
+}
+const modelMap = {
+    'franela': "{{ url_for('static', filename='3d/camisa.glb') }}",
+    'taza': "{{ url_for('static', filename='3d/taza.glb') }}",
+    'llavero': "{{ url_for('static', filename='3d/llavero_rec.glb') }}",
+    'filtro': "{{ url_for('static', filename='3d/filtro.glb') }}",
+    'gorra': "{{ url_for('static', filename='3d/gorra.glb') }}",
+    'pen': "{{ url_for('static', filename='3d/pen.glb') }}"
+};
+const fallbackGeometries = {
+    'mousepad': new THREE.BoxGeometry(3, 2, 0.05)
+};
+let modelGroup = null;
+
+// Material: generar una textura de bump (tela) y un envMap simple para acabado elegante
+function createBumpTexture(size=256){
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#777'; ctx.fillRect(0,0,size,size);
+    for(let i=0;i<3000;i++){
+        const x=Math.random()*size, y=Math.random()*size, s= Math.random()*1.8;
+        ctx.fillStyle = `rgba(255,255,255,${0.02+Math.random()*0.05})`;
+        ctx.fillRect(x,y,s,s);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4,4);
+    return tex;
+}
+
+function createEnvTexture(){
+    const c = document.createElement('canvas'); c.width=512; c.height=256;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0,0,0,c.height);
+    g.addColorStop(0,'#eef6ff'); g.addColorStop(0.5,'#fbfdff'); g.addColorStop(1,'#e6eefb');
+    ctx.fillStyle = g; ctx.fillRect(0,0,c.width,c.height);
+    const tex = new THREE.CanvasTexture(c);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    return tex;
+}
+
+const bumpTexture = createBumpTexture(256);
+const envTexture = createEnvTexture();
+// Use the generated environment texture for PBR reflections
+scene.environment = envTexture;
+
+const mainMaterial = new THREE.MeshPhysicalMaterial({
+    map: customTexture,
+    roughness: 0.55,
+    metalness: 0.05,
+    clearcoat: 0.12,
+    clearcoatRoughness: 0.2,
+    reflectivity: 0.3,
+    envMap: envTexture,
+    envMapIntensity: 0.8,
+    bumpMap: bumpTexture,
+    bumpScale: 0.02
+});
+
+// subMaterial para mangas y otros elementos con menor brillo
+const subMaterial = new THREE.MeshPhysicalMaterial({
+    roughness: 0.75,
+    metalness: 0.02,
+    clearcoat: 0.04,
+    envMap: envTexture,
+    envMapIntensity: 0.6,
+    bumpMap: bumpTexture,
+    bumpScale: 0.01
+});
+
+// Geometries map (used for standard non-clothing items)
+let currentMesh = null;
+// Incremental token to ignore stale async loads
+let currentLoadId = 0;
+
+function init3D() {
+    requestAnimationFrame(() => {
+        resizeRenderer();
+        animate();
+        update3DModel();
+    });
+}
+
+function loadModel(url) {
+    return new Promise((resolve, reject) => {
+        // Primary attempt using GLTFLoader.load
+        gltfLoader.load(url, gltf => resolve(gltf.scene || gltf.scenes[0]), undefined, err => {
+            console.warn('GLTFLoader.load failed, will attempt fetch+parse', err);
+            fetch(url).then(resp => {
+                if (!resp.ok) throw new Error('Fetch failed with status ' + resp.status);
+                return resp.arrayBuffer();
+            }).then(buf => {
+                try {
+                    gltfLoader.parse(buf, '', parsed => {
+                        resolve(parsed.scene || parsed.scenes[0]);
+                    }, parseErr => {
+                        console.error('GLTF parse error after fetch:', parseErr);
+                        reject(parseErr);
+                    });
+                } catch (e) {
+                    console.error('Exception during GLTF parse:', e);
+                    reject(e);
+                }
+            }).catch(fetchErr => {
+                console.error('Fetch fallback failed for', url, fetchErr);
+                reject(fetchErr);
+            });
+        });
+    });
+}
+
+// Remove any non-product floor/ground geometry from loaded models
+function cleanModelMeshes(object, type) {
+    if (!object) return;
+    const candidates = [];
+    object.traverse(node => {
+        if (!node.isMesh) return;
+        const name = (node.name || '').toLowerCase();
+        const isFloorName = /floor|ground|plane|suelo|base|baseplate|plano|piso|terrain/.test(name);
+        if (isFloorName) {
+            candidates.push(node);
+        }
+    });
+    candidates.forEach(node => {
+        if (node.parent) {
+            node.parent.remove(node);
+        }
+    });
+
+    // If the hat looks cut off, lift it a bit and tighten the fit
+    if (type === 'gorra') {
+        object.position.y += 0.08;
+        object.scale.multiplyScalar(1.02);
+    }
+}
+
+function getProductOrientation(type) {
+    switch (type) {
+        case 'taza':
+        case 'filtro':
+            return new THREE.Euler(0, Math.PI / 2, 0);
+        case 'gorra':
+            return new THREE.Euler(0, 0, 0);
+        case 'llavero':
+            return new THREE.Euler(0, Math.PI, 0);
+        case 'pen':
+            return new THREE.Euler(0, Math.PI / 2, 0);
+        case 'short':
+        case 'mousepad':
+            return new THREE.Euler(0, 0, 0);
+        default:
+            return new THREE.Euler(0, 0, 0);
+    }
+}
+
+function normalizeProductModel(object, type) {
+    if (!object) return;
+    cleanModelMeshes(object, type);
+    const orientation = getProductOrientation(type);
+    object.rotation.copy(orientation);
+    object.updateMatrixWorld(true);
+
+    const box = new THREE.Box3().setFromObject(object);
+    if (!box.isEmpty()) {
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        object.position.sub(center);
+        object.position.y += size.y * 0.5;
+        object.position.x = 0;
+        object.position.z = 0;
+    }
+    object.updateMatrixWorld(true);
+}
+
+function getProductFrontDirection(type) {
+    switch (type) {
+        case 'gorra':
+            return new THREE.Vector3(0, 0.15, 1).normalize();
+        case 'taza':
+        case 'filtro':
+            return new THREE.Vector3(0, 0.1, 1).normalize();
+        case 'llavero':
+        case 'pen':
+            return new THREE.Vector3(0, 0, 1).normalize();
+        case 'short':
+        case 'mousepad':
+            return new THREE.Vector3(0, 0.05, 1).normalize();
+        default:
+            return new THREE.Vector3(0, 0, 1).normalize();
+    }
+}
+
+// Fit and center an object so it fully appears in the camera view
+function fitModelToView(object, padding = 1.2, frontDir = null) {
+    if (!object) return;
+    const box = new THREE.Box3().setFromObject(object);
+    if (!box.isEmpty()) {
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxSize = Math.max(size.x, size.y, size.z);
+        const fov = camera.fov * (Math.PI / 180);
+        const distance = Math.abs(maxSize / 2 / Math.tan(fov / 2)) * padding;
+
+        const dir = frontDir ? frontDir.clone().normalize() : new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+        camera.position.copy(center.clone().add(dir.multiplyScalar(distance)));
+        camera.lookAt(center);
+
+        camera.near = Math.max(0.01, distance / 100);
+        camera.far = Math.max(1000, distance * 10);
+        camera.updateProjectionMatrix();
+
+        controls.target.copy(center);
+        controls.update();
+    }
+}
+
+// Preview error UI helpers
+const previewErrorEl = document.getElementById('previewError');
+const previewErrorMsg = document.getElementById('previewErrorMsg');
+const previewRetryBtn = document.getElementById('previewRetryBtn');
+function showPreviewError(msg) {
+    if (previewErrorMsg) previewErrorMsg.innerText = msg;
+    if (previewErrorEl) previewErrorEl.style.display = 'flex';
+}
+function clearPreviewError() {
+    if (previewErrorEl) previewErrorEl.style.display = 'none';
+    if (previewErrorMsg) previewErrorMsg.innerText = '';
+}
+if (previewRetryBtn) previewRetryBtn.addEventListener('click', () => { clearPreviewError(); update3DModel(); });
+
+async function update3DModel() {
+    // Increment load token to mark this request as current
+    const myLoadId = ++currentLoadId;
+
+    const type = document.getElementById('product_type').value;
+    if (currentMesh) {
+        scene.remove(currentMesh);
+        if (currentMesh.traverse) {
+            currentMesh.traverse(node => {
+                if (node.isMesh) {
+                    node.geometry?.dispose();
+                    node.material?.dispose();
+                }
+            });
+        }
+        currentMesh = null;
+    }
+
+    if (modelMap[type]) {
+        const url = modelMap[type];
+        try {
+            clearPreviewError();
+            const model = await loadModel(url);
+            if (myLoadId !== currentLoadId) {
+                console.warn('Stale GLB load ignored for', url);
+                model.traverse(node => { if (node.isMesh) { node.geometry?.dispose(); node.material?.dispose(); } });
+                return;
+            }
+            normalizeProductModel(model, type);
+            let meshCount = 0;
+            model.traverse(child => {
+                if (child.isMesh) {
+                    meshCount++;
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.geometry?.attributes?.uv && child.geometry.attributes.uv.count > 0) {
+                        child.material = mainMaterial;
+                    } else {
+                        child.material = subMaterial;
+                    }
+                }
+            });
+            
+            if (meshCount === 0) {
+                console.warn('El modelo cargado no tiene mallas. Usando fallback procedural para:', type);
+                if (model.traverse) {
+                    model.traverse(node => {
+                        if (node.isMesh) {
+                            node.geometry?.dispose();
+                            node.material?.dispose();
+                        }
+                    });
+                }
+                buildFallbackType(type, myLoadId);
+            } else {
+                model.scale.set(1.05, 1.05, 1.05);
+                currentMesh = model;
+                scene.add(currentMesh);
+                try {
+                    const dir = getProductFrontDirection(type);
+                    fitModelToView(currentMesh, 1.2, dir);
+                } catch (e) {
+                    console.warn('fitModelToView failed', e);
+                }
+            }
+        } catch (error) {
+            console.error('Error cargando modelo 3D:', url, error);
+            showPreviewError('No se pudo cargar el modelo 3D: ' + url + '. Revisa la consola.');
+            buildFallbackType(type, myLoadId);
+        }
+    } else {
+        buildFallbackType(type, myLoadId);
+    }
+
+    updateMaterialProperties();
+    updateCanvasTexture();
+}
+
+function buildFallbackType(type, loadId) {
+    // If a newer load began, ignore this fallback
+    if (typeof loadId !== 'undefined' && loadId !== currentLoadId) {
+        console.warn('Skipped fallback because a newer load started');
+        return;
+    }
+
+    // Legacy primitive fallback: only keep minimal generic shapes for items
+    // that don't have a GLB model. Removed specialized 'franela' primitive
+    // so that 'franela' always uses the GLB model when available.
+    const group = new THREE.Group();
+    if (type === 'short') {
+        const leftLegGeom = new THREE.CylinderGeometry(0.36, 0.40, 0.9, 48, 1, false);
+        const leftLeg = new THREE.Mesh(leftLegGeom, mainMaterial);
+        leftLeg.position.set(-0.38, -0.25, 0);
+        leftLeg.rotation.z = Math.PI / 48;
+        leftLeg.castShadow = true; leftLeg.receiveShadow = true;
+        group.add(leftLeg);
+
+        const rightLegGeom = new THREE.CylinderGeometry(0.36, 0.40, 0.9, 48, 1, false);
+        const rightLeg = new THREE.Mesh(rightLegGeom, mainMaterial);
+        rightLeg.position.set(0.38, -0.25, 0);
+        rightLeg.rotation.z = -Math.PI / 48;
+        rightLeg.castShadow = true; rightLeg.receiveShadow = true;
+        group.add(rightLeg);
+
+        const bandGeom = new THREE.CylinderGeometry(0.78, 0.78, 0.16, 48);
+        const waistband = new THREE.Mesh(bandGeom, subMaterial);
+        waistband.position.y = 0.45;
+        waistband.castShadow = false; waistband.receiveShadow = true;
+        group.add(waistband);
+
+        const hemLeft = new THREE.TorusGeometry(0.36, 0.03, 16, 100);
+        const hemMeshLeft = new THREE.Mesh(hemLeft, subMaterial);
+        hemMeshLeft.rotation.x = Math.PI / 2;
+        hemMeshLeft.position.set(-0.38, -0.75, 0);
+        hemMeshLeft.castShadow = false; hemMeshLeft.receiveShadow = true;
+        group.add(hemMeshLeft);
+
+        const hemRight = new THREE.TorusGeometry(0.36, 0.03, 16, 100);
+        const hemMeshRight = new THREE.Mesh(hemRight, subMaterial);
+        hemMeshRight.rotation.x = Math.PI / 2;
+        hemMeshRight.position.set(0.38, -0.75, 0);
+        hemMeshRight.castShadow = false; hemMeshRight.receiveShadow = true;
+        group.add(hemMeshRight);
+        group.rotation.x = -0.02;
+    } else if (type === 'taza') {
+        // Beautiful procedural mug
+        const cupGeom = new THREE.CylinderGeometry(0.75, 0.75, 1.6, 32);
+        const cup = new THREE.Mesh(cupGeom, mainMaterial);
+        cup.castShadow = true; cup.receiveShadow = true;
+        group.add(cup);
+
+        const handleGeom = new THREE.TorusGeometry(0.45, 0.12, 16, 32, Math.PI * 1.2);
+        const handle = new THREE.Mesh(handleGeom, subMaterial);
+        handle.position.set(-0.7, 0, 0);
+        handle.rotation.z = Math.PI * 0.9;
+        handle.castShadow = true; handle.receiveShadow = true;
+        group.add(handle);
+    } else if (type === 'gorra') {
+        // Beautiful procedural cap
+        const domeGeom = new THREE.SphereGeometry(0.75, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const dome = new THREE.Mesh(domeGeom, mainMaterial);
+        dome.castShadow = true; dome.receiveShadow = true;
+        group.add(dome);
+
+        const visorGeom = new THREE.BoxGeometry(1.1, 0.04, 0.65);
+        const visor = new THREE.Mesh(visorGeom, subMaterial);
+        visor.position.set(0, -0.05, 0.6);
+        visor.rotation.x = 0.12;
+        visor.castShadow = true; visor.receiveShadow = true;
+        group.add(visor);
+        
+        group.position.y = 0.15;
+    } else {
+        const geom = fallbackGeometries[type] || new THREE.BoxGeometry(2.5, 3, 0.4);
+        const mesh = new THREE.Mesh(geom, mainMaterial);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        group.add(mesh);
+    }
+    currentMesh = group;
+    scene.add(currentMesh);
+    try {
+        const dir = getProductFrontDirection(type);
+        fitModelToView(currentMesh, 1.2, dir);
+    } catch (e) {
+        console.warn('fitModelToView failed for fallback', e);
+    }
+}
+
+function updateMaterialProperties() {
+    const materialSelect = document.getElementById('material');
+    if(!materialSelect) return;
+    const mat = materialSelect.value.toLowerCase();
+    
+    // Defaults
+    mainMaterial.roughness = 0.5;
+    mainMaterial.metalness = 0.1;
+    mainMaterial.transparent = false;
+    mainMaterial.opacity = 1.0;
+    
+    if (mat.includes('cerámica')) {
+        mainMaterial.roughness = 0.1;
+        mainMaterial.metalness = 0.1;
+    } else if (mat.includes('algodón')) {
+        mainMaterial.roughness = 0.9;
+        mainMaterial.metalness = 0.0;
+    } else if (mat.includes('metal') || mat.includes('aluminio') || mat.includes('acero')) {
+        mainMaterial.roughness = 0.2;
+        mainMaterial.metalness = 0.8;
+    } else if (mat.includes('vidrio') || mat.includes('acrílico')) {
+        mainMaterial.transparent = true;
+        mainMaterial.opacity = 0.5;
+        mainMaterial.roughness = 0.05;
+        mainMaterial.metalness = 0.1;
+    } else if (mat.includes('poliéster')) {
+        mainMaterial.roughness = 0.6;
+        mainMaterial.metalness = 0.1;
+    }
+    mainMaterial.needsUpdate = true;
+    
+    // Synchronize subMaterial properties & color
+    const baseColor = document.getElementById('product_color_picker').value;
+    subMaterial.color.set(baseColor);
+    subMaterial.roughness = mainMaterial.roughness;
+    subMaterial.metalness = mainMaterial.metalness;
+    subMaterial.transparent = mainMaterial.transparent;
+    subMaterial.opacity = mainMaterial.opacity;
+    subMaterial.needsUpdate = true;
+}
+
+let uploadedImage = null;
+
+function updateCanvasTexture() {
+    const baseColor = document.getElementById('product_color_picker').value;
+    const textInput = document.getElementById('custom_text').value.trim();
+    const textColor = document.getElementById('text_color_picker').value;
+    const font = document.getElementById('font_style').value.split(',')[0].replace(/'/g, ''); 
+    const textSize = parseFloat(document.getElementById('textSizeSlider').value) * 60; 
+    const placement = document.getElementById('placement').value;
+    const productType = document.getElementById('product_type').value;
+
+    const frontPositions = {
+        'franela': { x: 0.5, y: 0.55, scale: 1.0 },
+        'short': { x: 0.5, y: 0.58, scale: 0.9 },
+        'taza': { x: 0.5, y: 0.55, scale: 0.7 },
+        'filtro': { x: 0.5, y: 0.55, scale: 0.7 },
+        'gorra': { x: 0.5, y: 0.5, scale: 0.8 },
+        'llavero': { x: 0.5, y: 0.55, scale: 0.7 },
+        'pen': { x: 0.5, y: 0.55, scale: 0.65 },
+        'mousepad': { x: 0.5, y: 0.6, scale: 1.0 }
+    };
+    const defaultFront = frontPositions[productType] || { x: 0.5, y: 0.5, scale: 1.0 };
+
+    // Background
+    texCtx.fillStyle = baseColor;
+    texCtx.fillRect(0, 0, texCanvas.width, texCanvas.height);
+    
+    // Position
+    let x = texCanvas.width * defaultFront.x;
+    let y = texCanvas.height * defaultFront.y;
+    let currentTextSize = textSize * defaultFront.scale;
+    
+    if (placement === 'Pecho') {
+        x = texCanvas.width * 0.34;
+        y = texCanvas.height * 0.45;
+        currentTextSize = textSize * 0.65;
+        if (productType === 'taza' || productType === 'filtro') {
+            x = texCanvas.width * 0.5;
+            y = texCanvas.height * 0.45;
+            currentTextSize = textSize * 0.5;
+        }
+        if (productType === 'gorra') {
+            x = texCanvas.width * 0.5;
+            y = texCanvas.height * 0.35;
+            currentTextSize = textSize * 0.75;
+        }
+    } else if (placement === 'Espalda') {
+        x = texCanvas.width * 0.5;
+        y = texCanvas.height * 0.55;
+        currentTextSize = textSize * 0.8;
+    }
+    
+    // Helper para dibujar texto con calidad
+    function drawText(ctx, text, fontSize, x, y, color) {
+        ctx.font = `bold ${fontSize}px ${font}, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const strokeW = Math.max(2, fontSize * 0.08);
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.lineWidth = strokeW;
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
+        ctx.strokeText(text, x, y);
+        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+        ctx.shadowBlur = Math.max(2, fontSize * 0.05);
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = Math.max(1, fontSize * 0.02);
+        ctx.fillStyle = color;
+        ctx.fillText(text, x, y);
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+    }
+    
+    // Draw Text (only if user typed something)
+    if (textInput) {
+        drawText(texCtx, textInput, currentTextSize, x, y, textColor);
+    }
+    
+    // Draw Image if uploaded
+    if (uploadedImage) {
+        const maxW = texCanvas.width * 0.55;
+        const imgW = Math.min(maxW, 400);
+        const imgH = imgW * (uploadedImage.height / uploadedImage.width);
+        const imgX = x - imgW / 2;
+        let drawY = y;
+        if (textInput) {
+            drawY = y + currentTextSize * 0.6 + 40;
+        } else {
+            drawY = y;
+        }
+        texCtx.imageSmoothingEnabled = true;
+        texCtx.imageSmoothingQuality = 'high';
+        texCtx.drawImage(uploadedImage, imgX, drawY - imgH / 2, imgW, imgH);
+    }
+    
+    // If short, draw central seam and hem lines on the texture to emulate stitched details
+    if (productType === 'short') {
+        const midX = texCanvas.width / 2;
+        const topY = texCanvas.height * 0.12;
+        const botY = texCanvas.height * 0.86;
+        texCtx.strokeStyle = 'rgba(0,0,0,0.12)';
+        texCtx.lineWidth = Math.max(3, texCanvas.width * 0.008);
+        texCtx.lineCap = 'round';
+        texCtx.beginPath();
+        texCtx.moveTo(midX, topY);
+        texCtx.lineTo(midX, botY);
+        texCtx.stroke();
+
+        // Hem arcs for left & right legs
+        texCtx.lineWidth = Math.max(2, texCanvas.width * 0.006);
+        texCtx.strokeStyle = 'rgba(0,0,0,0.08)';
+        const leftCx = texCanvas.width * 0.28;
+        const rightCx = texCanvas.width * 0.72;
+        const hemY = texCanvas.height * 0.78;
+        texCtx.beginPath();
+        texCtx.ellipse(leftCx, hemY, texCanvas.width * 0.18, texCanvas.height * 0.06, 0, 0, Math.PI);
+        texCtx.stroke();
+        texCtx.beginPath();
+        texCtx.ellipse(rightCx, hemY, texCanvas.width * 0.18, texCanvas.height * 0.06, 0, 0, Math.PI);
+        texCtx.stroke();
+    }
+    
+    customTexture.flipY = false;
+    customTexture.needsUpdate = true;
+
+    // Calcular precios y actualizar el resumen (cliente-side)
+    const basePrices = { 'franela': 20.00, 'short': 18.00, 'taza': 12.00, 'pen': 8.00, 'llavero': 5.00, 'filtro': 25.00, 'gorra': 15.00, 'mousepad': 10.00 };
+    const base = basePrices[productType] || 15.00;
+    const hasText = (document.getElementById('custom_text').value || '').trim().length > 0;
+    const hasImage = !!uploadedImage;
+    const custom = (hasText || hasImage) ? 10.00 : 0.00;
+    const shipping = 0.00;
+    const total = base + custom + shipping;
+
+    function jsFormatPrice(v){
+        const usd = '$' + Number(v).toFixed(2);
+        const tasa = window.tasaCambio || 40.0;
+        const bs = (v * tasa).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+        return usd + ' / ' + bs.replace('.', ',') + ' Bs';
+    }
+
+    document.getElementById('priceBase').innerText = jsFormatPrice(base);
+    document.getElementById('priceCustom').innerText = jsFormatPrice(custom);
+    document.getElementById('priceShipping').innerText = jsFormatPrice(shipping);
+    document.getElementById('priceTotal').innerText = jsFormatPrice(total);
+    // También actualizar el total en el botón o resumen si existiera
+    const totalSpan = document.querySelector('.summary-card [id="priceTotal"]');
+    if (totalSpan) totalSpan.innerText = jsFormatPrice(total);
+}
+
+function handleImage(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                uploadedImage = img;
+                
+                // Mostrar vista previa local
+                const thumb = document.getElementById('imagePreviewThumb');
+                const nameSpan = document.getElementById('imagePreviewName');
+                const container = document.getElementById('imagePreviewContainer');
+                if (thumb && nameSpan && container) {
+                    thumb.src = e.target.result;
+                    nameSpan.innerText = file.name;
+                    container.style.display = 'block';
+                }
+                
+                updateCanvasTexture();
+            }
+            img.src = e.target.result;
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+function removeUploadedImage() {
+    uploadedImage = null;
+    
+    // Limpiar input de archivo
+    const input = document.getElementById('design_image');
+    if (input) input.value = '';
+    
+    // Ocultar vista previa local
+    const container = document.getElementById('imagePreviewContainer');
+    if (container) container.style.display = 'none';
+    
+    updateCanvasTexture();
+}
+
+function updateColorFromPicker(picker, target) {
+    const color = picker.value.toUpperCase();
+    if (target === 'product') {
+        document.getElementById('productColorName').innerText = color;
+    } else {
+        document.getElementById('textColorName').innerText = color;
+    }
+    updateCanvasTexture();
+}
+
+function updatePreview() {
+    const textSize = document.getElementById('textSizeSlider').value;
+    document.getElementById('textSizeLabel').innerText = textSize + 'rem';
+    updateCanvasTexture();
+    updateSummary();
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    resizeRenderer();
+});
+
+const productData = {
+    'franela': { sizes: ['S', 'M', 'L', 'XL', 'XXL'], materials: ['Algodón', 'Poliéster', 'Mezcla'], hasSize: true },
+    'short': { sizes: ['S', 'M', 'L', 'XL'], materials: ['Poliéster Deportivo', 'Algodón'], hasSize: true },
+    'taza': { sizes: [], materials: ['Cerámica', 'Acero Esmaltado', 'Vidrio'], hasSize: false },
+    'llavero': { sizes: [], materials: ['Acrílico', 'Metal', 'Madera MDF'], hasSize: false },
+    'filtro': { sizes: [], materials: ['Aluminio', 'Acero Inoxidable', 'Plástico Térmico'], hasSize: false },
+    'gorra': { sizes: [], materials: ['Algodón', 'Poliéster'], hasSize: false },
+    'pen': { sizes: [], materials: ['Metal', 'Plástico', 'Acero'], hasSize: false },
+    'mousepad': { sizes: [], materials: ['Goma antideslizante', 'Tela de microfibra'], hasSize: false }
+};
+
+function updateProductFields() {
+    const productType = document.getElementById('product_type').value;
+    const sizeGroup = document.getElementById('sizeGroup');
+    const sizeSelect = document.getElementById('size');
+    const materialSelect = document.getElementById('material');
+    const grid = document.getElementById('dynamicFieldsGrid');
+    
+    const data = productData[productType];
+    
+    if (data.hasSize) {
+        sizeGroup.style.display = 'block';
+        grid.style.gridTemplateColumns = '1fr 1fr';
+        
+        const currentSize = sizeSelect.value;
+        sizeSelect.innerHTML = '';
+        data.sizes.forEach(size => {
+            const option = document.createElement('option');
+            option.value = size; option.text = size;
+            sizeSelect.appendChild(option);
+        });
+        if (currentSize && Array.from(sizeSelect.options).some(opt => opt.value === currentSize)) sizeSelect.value = currentSize;
+    } else {
+        sizeGroup.style.display = 'none';
+        grid.style.gridTemplateColumns = '1fr';
+        sizeSelect.innerHTML = '';
+    }
+    
+    const currentMaterial = materialSelect.value;
+    materialSelect.innerHTML = '';
+    data.materials.forEach(mat => {
+        const option = document.createElement('option');
+        option.value = mat; option.text = mat;
+        materialSelect.appendChild(option);
+    });
+    if (currentMaterial && Array.from(materialSelect.options).some(opt => opt.value === currentMaterial)) materialSelect.value = currentMaterial;
+    
+    // Sincronización automática de color y material por defecto para Franela y Short
+    if (window.lastProductType !== productType) {
+        if (productType === 'franela') {
+            document.getElementById('product_color_picker').value = '#ffffff';
+            document.getElementById('productColorName').innerText = '#FFFFFF';
+            if (materialSelect.options.length > 0) {
+                materialSelect.value = 'Algodón';
+            }
+        } else if (productType === 'short') {
+            document.getElementById('product_color_picker').value = '#cccccc';
+            document.getElementById('productColorName').innerText = '#CCCCCC';
+            if (materialSelect.options.length > 0) {
+                materialSelect.value = 'Poliéster Deportivo';
+            }
+        }
+        window.lastProductType = productType;
+    }
+    
+    update3DModel();
+    updatePreview();
+}
+
+document.getElementById('product_type').addEventListener('change', updateProductFields);
+document.getElementById('material').addEventListener('change', () => {
+    updateMaterialProperties();
+    updateCanvasTexture();
+    updateSummary();
+});
+
+function updateSummary() {
+    const pt = document.getElementById('product_type');
+    document.getElementById('summaryProduct').innerText = pt.options[pt.selectedIndex].text;
+    
+    const sizeStr = productData[pt.value].hasSize && document.getElementById('size').options.length > 0 ? document.getElementById('size').value + ' - ' : '';
+    document.getElementById('summaryDetail').innerText = sizeStr + (document.getElementById('material').value || '');
+    document.getElementById('summaryPlacement').innerText = document.getElementById('placement').value;
+}
+
+// Cargar tasa BCV dinámica
+fetch('/api/tasa-cambio')
+    .then(r => r.json())
+    .then(d => { window.tasaCambio = d.tasa; updateCanvasTexture(); })
+    .catch(() => {});
+
+updateProductFields();
+init3D();
+</script>
+{% endblock %}
