@@ -275,7 +275,7 @@ const modelMap = {
     'taza': "{{ url_for('static', filename='3d/taza.glb') }}",
     'llavero': "{{ url_for('static', filename='3d/llavero_rec.glb') }}",
     'filtro': "{{ url_for('static', filename='3d/filtro.glb') }}",
-    'gorra': "{{ url_for('static', filename='3d/gorra.glb') }}",
+    'gorra': "{{ url_for('static', filename='3d/gorra2.glb') }}",
     'pen': "{{ url_for('static', filename='3d/pen.glb') }}"
 };
 const fallbackGeometries = {
@@ -284,19 +284,83 @@ const fallbackGeometries = {
 let modelGroup = null;
 
 // Material: generar una textura de bump (tela) y un envMap simple para acabado elegante
-function createBumpTexture(size=256){
+function generateCylindricalUVs(geometry) {
+    const positionAttribute = geometry.attributes.position;
+    if (!positionAttribute) return;
+    
+    const count = positionAttribute.count;
+    const uvs = new Float32Array(count * 2);
+    
+    // Find min and max Y to normalize V coordinate
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < count; i++) {
+        const y = positionAttribute.getY(i);
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+    }
+    const height = (maxY - minY) || 1.0;
+    
+    for (let i = 0; i < count; i++) {
+        const x = positionAttribute.getX(i);
+        const y = positionAttribute.getY(i);
+        const z = positionAttribute.getZ(i);
+        
+        // U: angle around Y axis normalized to [0, 1]
+        const u = (Math.atan2(x, z) + Math.PI) / (2 * Math.PI);
+        // V: height normalized to [0, 1]
+        const v = (y - minY) / height;
+        
+        uvs[i * 2] = u;
+        uvs[i * 2 + 1] = v;
+    }
+    
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.attributes.uv.needsUpdate = true;
+}
+
+// Material: generar una textura de bump de tejido fino (tela tejida) y un envMap simple para acabado elegante
+function createBumpTexture(size = 256) {
     const c = document.createElement('canvas');
     c.width = c.height = size;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#777'; ctx.fillRect(0,0,size,size);
-    for(let i=0;i<3000;i++){
-        const x=Math.random()*size, y=Math.random()*size, s= Math.random()*1.8;
-        ctx.fillStyle = `rgba(255,255,255,${0.02+Math.random()*0.05})`;
-        ctx.fillRect(x,y,s,s);
+    
+    // Fill with neutral grey
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, size, size);
+    
+    // Draw fine woven pattern (horizontal and vertical threads)
+    ctx.lineWidth = 1;
+    for (let x = 0; x < size; x += 4) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, size);
+        ctx.stroke();
+        
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(x + 2, 0);
+        ctx.lineTo(x + 2, size);
+        ctx.stroke();
     }
+    for (let y = 0; y < size; y += 4) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(size, y);
+        ctx.stroke();
+        
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(0, y + 2);
+        ctx.lineTo(size, y + 2);
+        ctx.stroke();
+    }
+    
     const tex = new THREE.CanvasTexture(c);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(4,4);
+    tex.repeat.set(16, 16); // High density repeat for realistic weave micro-detail
     return tex;
 }
 
@@ -399,9 +463,8 @@ function cleanModelMeshes(object, type) {
         }
     });
 
-    // If the hat looks cut off, lift it a bit and tighten the fit
+    // If the hat looks cut off, tighten the fit
     if (type === 'gorra') {
-        object.position.y += 0.08;
         object.scale.multiplyScalar(1.02);
     }
 }
@@ -436,10 +499,42 @@ function normalizeProductModel(object, type) {
     if (!box.isEmpty()) {
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
-        object.position.sub(center);
-        object.position.y += size.y * 0.5;
-        object.position.x = 0;
-        object.position.z = 0;
+        
+        if (type === 'gorra') {
+            // Find the hat (dome) node to center the cap's rotation pivot on the dome instead of the visor
+            let hatNode = null;
+            object.traverse(node => {
+                if (node.isMesh && node.name.toLowerCase().includes('hat')) {
+                    hatNode = node;
+                }
+            });
+            if (hatNode) {
+                const hatBox = new THREE.Box3().setFromObject(hatNode);
+                if (!hatBox.isEmpty()) {
+                    const hatCenter = hatBox.getCenter(new THREE.Vector3());
+                    object.position.x -= hatCenter.x;
+                    object.position.z -= hatCenter.z;
+                    object.position.y -= center.y;
+                    object.position.y += size.y * 0.5;
+                    object.position.y += 0.08;
+                } else {
+                    object.position.sub(center);
+                    object.position.y += size.y * 0.5;
+                    object.position.x = 0;
+                    object.position.z = 0;
+                }
+            } else {
+                object.position.sub(center);
+                object.position.y += size.y * 0.5;
+                object.position.x = 0;
+                object.position.z = 0;
+            }
+        } else {
+            object.position.sub(center);
+            object.position.y += size.y * 0.5;
+            object.position.x = 0;
+            object.position.z = 0;
+        }
     }
     object.updateMatrixWorld(true);
 }
@@ -463,12 +558,29 @@ function getProductFrontDirection(type) {
 }
 
 // Fit and center an object so it fully appears in the camera view
-function fitModelToView(object, padding = 1.2, frontDir = null) {
+function fitModelToView(object, padding = 1.2, frontDir = null, type = null) {
     if (!object) return;
     const box = new THREE.Box3().setFromObject(object);
     if (!box.isEmpty()) {
         const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
+        let center = box.getCenter(new THREE.Vector3());
+        
+        // If it's a cap, focus the camera look-at on the dome center
+        if (type === 'gorra') {
+            let hatNode = null;
+            object.traverse(node => {
+                if (node.isMesh && node.name.toLowerCase().includes('hat')) {
+                    hatNode = node;
+                }
+            });
+            if (hatNode) {
+                const hatBox = new THREE.Box3().setFromObject(hatNode);
+                if (!hatBox.isEmpty()) {
+                    center = hatBox.getCenter(new THREE.Vector3());
+                }
+            }
+        }
+        
         const maxSize = Math.max(size.x, size.y, size.z);
         const fov = camera.fov * (Math.PI / 180);
         const distance = Math.abs(maxSize / 2 / Math.tan(fov / 2)) * padding;
@@ -535,7 +647,27 @@ async function update3DModel() {
                     meshCount++;
                     child.castShadow = true;
                     child.receiveShadow = true;
-                    if (child.geometry?.attributes?.uv && child.geometry.attributes.uv.count > 0) {
+                    
+                    const hadUVs = child.geometry?.attributes?.uv && child.geometry.attributes.uv.count > 0;
+                    if (!hadUVs) {
+                        try {
+                            generateCylindricalUVs(child.geometry);
+                        } catch (e) {
+                            console.warn('Failed to generate UVs for', child.name, e);
+                        }
+                    }
+                    
+                    const childName = (child.name || '').toLowerCase();
+                    const parentName = (child.parent && child.parent.name || '').toLowerCase();
+                    const isBrim = childName.includes('brim') || parentName.includes('brim') || childName.includes('visor') || parentName.includes('visor');
+                    
+                    // For the shirt, only Mesh 0 (Cube.001) has the front panel with original UVs,
+                    // and Vert has no original UVs. We only want the panel (hadUVs) to receive mainMaterial,
+                    // and the shirt body (which now has generated UVs) to receive subMaterial (with fabric texture).
+                    const isFranela = (type === 'franela');
+                    const shouldGetMainMaterial = isFranela ? hadUVs : (child.geometry?.attributes?.uv && child.geometry.attributes.uv.count > 0 && !isBrim);
+                    
+                    if (shouldGetMainMaterial) {
                         child.material = mainMaterial;
                     } else {
                         child.material = subMaterial;
@@ -560,7 +692,7 @@ async function update3DModel() {
                 scene.add(currentMesh);
                 try {
                     const dir = getProductFrontDirection(type);
-                    fitModelToView(currentMesh, 1.2, dir);
+                    fitModelToView(currentMesh, 1.2, dir, type);
                 } catch (e) {
                     console.warn('fitModelToView failed', e);
                 }
@@ -662,7 +794,7 @@ function buildFallbackType(type, loadId) {
     scene.add(currentMesh);
     try {
         const dir = getProductFrontDirection(type);
-        fitModelToView(currentMesh, 1.2, dir);
+        fitModelToView(currentMesh, 1.2, dir, type);
     } catch (e) {
         console.warn('fitModelToView failed for fallback', e);
     }
@@ -678,24 +810,34 @@ function updateMaterialProperties() {
     mainMaterial.metalness = 0.1;
     mainMaterial.transparent = false;
     mainMaterial.opacity = 1.0;
+    mainMaterial.bumpScale = 0.02;
     
     if (mat.includes('cerámica')) {
         mainMaterial.roughness = 0.1;
         mainMaterial.metalness = 0.1;
+        mainMaterial.bumpScale = 0.005;
     } else if (mat.includes('algodón')) {
-        mainMaterial.roughness = 0.9;
+        mainMaterial.roughness = 0.95;
         mainMaterial.metalness = 0.0;
+        mainMaterial.bumpScale = 0.035;
+    } else if (mat.includes('poliéster') || mat.includes('deportivo')) {
+        mainMaterial.roughness = 0.65;
+        mainMaterial.metalness = 0.05;
+        mainMaterial.bumpScale = 0.02;
+    } else if (mat.includes('mezcla')) {
+        mainMaterial.roughness = 0.8;
+        mainMaterial.metalness = 0.02;
+        mainMaterial.bumpScale = 0.025;
     } else if (mat.includes('metal') || mat.includes('aluminio') || mat.includes('acero')) {
         mainMaterial.roughness = 0.2;
         mainMaterial.metalness = 0.8;
+        mainMaterial.bumpScale = 0.01;
     } else if (mat.includes('vidrio') || mat.includes('acrílico')) {
         mainMaterial.transparent = true;
         mainMaterial.opacity = 0.5;
         mainMaterial.roughness = 0.05;
         mainMaterial.metalness = 0.1;
-    } else if (mat.includes('poliéster')) {
-        mainMaterial.roughness = 0.6;
-        mainMaterial.metalness = 0.1;
+        mainMaterial.bumpScale = 0.002;
     }
     mainMaterial.needsUpdate = true;
     
@@ -706,6 +848,7 @@ function updateMaterialProperties() {
     subMaterial.metalness = mainMaterial.metalness;
     subMaterial.transparent = mainMaterial.transparent;
     subMaterial.opacity = mainMaterial.opacity;
+    subMaterial.bumpScale = mainMaterial.bumpScale;
     subMaterial.needsUpdate = true;
 }
 
