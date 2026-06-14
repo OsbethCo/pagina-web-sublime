@@ -23,6 +23,7 @@
         <p style="color: var(--text-muted); margin-bottom: 35px; font-size: 1rem; font-weight: 500;">Ingresa a tu cuenta para continuar</p>
         
         <form id="formLogin" action="{{ url_for('login') }}" method="POST" style="text-align: left;">
+            <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
             <div class="input-group" style="margin-bottom: 20px; position: relative;">
                 <i class="fa-solid fa-envelope input-icon" style="position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 1.1rem; z-index: 2; transition: all 0.3s ease;"></i>
                 <input type="text" id="usuario" name="username" placeholder="Usuario o Correo" required class="glass-input">
@@ -49,6 +50,7 @@
             </button>
         </form>
         
+        <script src="{{ url_for('static', filename='login.js') }}"></script>
         <div style="margin: 35px 0; position: relative; text-align: center;">
             <hr style="border: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); margin: 0;">
             <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-color); padding: 0 15px; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; border-radius: 20px;">O continúa con</span>

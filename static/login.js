@@ -7,7 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
             evento.preventDefault();
 
             const usuarioInput = document.getElementById('usuario').value.trim();
-            const contrasenaInput = document.getElementById('contrasena').value;
+            const contrasenaInput = document.getElementById('password').value;
+            const nextInput = document.querySelector('input[name="next"]');
+            const nextRedirect = nextInput ? nextInput.value : '';
 
             mensajeError.style.display = 'none';
             mensajeError.textContent = '';
@@ -29,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (respuesta.ok) {
                     localStorage.setItem('sesionActiva', 'true');
                     localStorage.setItem('nombreUsuario', usuarioInput);
-                    window.location.href = 'index.html'; 
+                    window.location.href = nextRedirect || '/';
                 } else {
                     mensajeError.textContent = datos.mensaje || 'El usuario o la contraseña no son correctos. Inténtalo de nuevo.';
                     mensajeError.style.display = 'block';
