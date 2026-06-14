@@ -102,7 +102,76 @@ body.light-mode .mockup-container {
     display: block;
 }
 
-#textureCanvas { display: none; }
+#textureCanvas {
+    display: none;
+}
+
+/* Editor WYSIWYG overlay */
+#editorStage {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+}
+
+#editorLayer {
+    position: absolute;
+    inset: 0;
+}
+
+/* Evita que el overlay bloquee interacción con el renderer 3D fuera de elementos */
+#editorLayer * { box-sizing: border-box; }
+
+.design-item {
+    position: absolute;
+    user-select: none;
+    cursor: grab;
+    will-change: left, top;
+}
+
+.design-item.dragging {
+    cursor: grabbing;
+}
+
+.design-item-delete {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    border: 0;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: auto;
+}
+
+.design-item:hover .design-item-delete,
+.design-item.dragging .design-item-delete {
+    opacity: 1;
+}
+
+.design-item-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.design-item-text {
+    white-space: nowrap;
+    padding: 2px 6px;
+}
+
+.design-item-clipart {
+    padding: 0;
+    line-height: 1;
+}
+
 
 .preview-tip {
     position: absolute;
