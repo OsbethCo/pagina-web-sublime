@@ -149,4 +149,109 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     })();
+
+    // Helper: position the added-to-cart toast/modal under the cart icon
+    function placeAddedModal(modal) {
+        if (!modal) return;
+        const cartAnchor = document.querySelector('.nav-links a[title="Carrito de Compras"]');
+        // Ensure fixed positioning so coordinates are viewport-based
+        modal.style.position = 'fixed';
+        // Default placement: center top of viewport
+        let left = Math.max(8, window.innerWidth / 2 - modal.offsetWidth / 2);
+        let top = 80; // fallback
+        if (cartAnchor) {
+            const rect = cartAnchor.getBoundingClientRect();
+            top = rect.bottom + 8;
+            left = rect.left + (rect.width / 2) - (modal.offsetWidth / 2);
+            // clamp within viewport
+            left = Math.max(8, Math.min(left, window.innerWidth - modal.offsetWidth - 8));
+        }
+        // Mobile narrow screens: center above bottom
+        if (window.innerWidth < 480) {
+            left = Math.max(8, window.innerWidth / 2 - modal.offsetWidth / 2);
+            top = Math.max(12, (window.innerHeight - modal.offsetHeight) * 0.6);
+        }
+        modal.style.left = `${left}px`;
+        modal.style.top = `${top + window.scrollY}px`;
+    }
+
+    // Show the added modal/toast with image and automatic positioning
+    window.showAddedModal = function({ title = '', text = '', image = '' } = {}) {
+        const modal = document.getElementById('globalAddedModal');
+        if (!modal) return;
+        const modalTitle = document.getElementById('globalAddedModalTitle');
+        const modalText = document.getElementById('globalAddedModalText');
+        const modalImage = document.getElementById('globalAddedModalImage');
+        const closeBtn = document.getElementById('globalAddedModalClose');
+
+        if (modalTitle) modalTitle.textContent = title || modalTitle.textContent;
+        if (modalText) modalText.textContent = text || modalText.textContent;
+
+        if (modalImage) {
+            if (image) {
+                modalImage.src = image;
+                modalImage.style.display = '';
+            } else {
+                modalImage.src = '';
+                modalImage.style.display = 'none';
+            }
+        }
+
+        modal.style.display = 'flex';
+        // allow content sizing
+        requestAnimationFrame(() => {
+            modal.classList.add('open');
+            // compute placement after open so size is known
+            requestAnimationFrame(() => placeAddedModal(modal));
+        });
+        modal.setAttribute('aria-hidden', 'false');
+
+        // close handlers
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.classList.remove('open');
+                modal.setAttribute('aria-hidden', 'true');
+                setTimeout(() => modal.style.display = 'none', 220);
+            }, { once: true });
+        }
+        modal.addEventListener('click', (ev) => { if (ev.target === modal) { closeBtn && closeBtn.click(); } }, { once: true });
+        // auto close
+        setTimeout(() => { closeBtn && closeBtn.click(); }, 4200);
+    };
+
+    // AJAX add-to-cart handler: intercept links/buttons with .ajax-add
+    (function initAjaxAddToCart(){
+        document.body.addEventListener('click', async (e) => {
+            const el = e.target.closest('.ajax-add');
+            if (!el) return;
+            e.preventDefault();
+            const productId = el.getAttribute('data-product-id') || el.dataset.productId;
+            if (!productId) return;
+
+            try {
+                const resp = await fetch('/api/cart/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product_id: parseInt(productId, 10), quantity: 1 })
+                });
+                const data = await resp.json();
+                // update cart counter in nav (first matching span)
+                const cartSpan = document.querySelector('.nav-links a[title="Carrito de Compras"] span') || document.querySelector('.nav-links span');
+                if (cartSpan && data.cart_count !== undefined) cartSpan.textContent = data.cart_count;
+
+                // show global toast/modal under cart icon with image
+                if (window.showAddedModal) {
+                    window.showAddedModal({
+                        title: data.product_name || 'Producto añadido',
+                        text: data.mensaje || 'El producto se añadió correctamente a tu carrito.',
+                        image: data.product_image || ''
+                    });
+                }
+
+            } catch (err) {
+                console.error('Error añadiendo al carrito', err);
+                window.location.href = el.getAttribute('href') || '/carrito';
+            }
+        });
+    })();
 });

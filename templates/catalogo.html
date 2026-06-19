@@ -55,7 +55,7 @@
             <p class="price">{{ format_price(p.price) }}</p>
             <div class="card-actions">
                 <a href="{{ url_for('producto', id=p.id) }}" class="btn-outline">Ver</a>
-                <a href="{{ url_for('agregar_carrito', id=p.id) }}" class="btn-secondary">Añadir</a>
+                <a href="{{ url_for('agregar_carrito', id=p.id) }}" class="btn-secondary ajax-add" data-product-id="{{ p.id }}">Añadir</a>
             </div>
         </div>
     </div>

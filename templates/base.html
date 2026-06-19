@@ -47,6 +47,21 @@
           {% endif %}
         {% endwith %}
         
+        <!-- Global modal for "Producto añadido" (used by AJAX add-to-cart) -->
+        <div id="globalAddedModal" class="added-modal" aria-hidden="true" style="display:none;">
+            <div class="added-modal-content added-toast">
+                <img id="globalAddedModalImage" src="" alt="" class="added-modal-image" style="display:none;">
+                <div class="added-modal-body">
+                    <button id="globalAddedModalClose" class="added-modal-close" aria-label="Cerrar">&times;</button>
+                    <h3 id="globalAddedModalTitle">Producto añadido al carrito</h3>
+                    <p id="globalAddedModalText">El producto se añadió correctamente a tu carrito.</p>
+                    <div class="added-modal-actions">
+                        <a href="{{ url_for('catalogo') }}" class="btn-outline">Seguir comprando</a>
+                        <a href="{{ url_for('carrito') }}" class="btn-primary">Ir a pagar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% block content %}{% endblock %}
     </div>
 
