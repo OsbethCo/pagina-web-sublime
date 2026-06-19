@@ -27,7 +27,28 @@
             {% else %}
                 <li><a href="{{ url_for('login') }}" style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-user fa-lg"></i> <span style="text-transform: none;">Iniciar sesión</span></a></li>
             {% endif %}
-            <li><a href="{{ url_for('carrito') }}" title="Carrito de Compras"><i class="fa-solid fa-cart-shopping fa-lg"></i> <span style="font-size: 0.8rem; background: var(--primary-grad); padding: 2px 6px; border-radius: 50%; color: white;">{{ cart_count|default(0) }}</span></a></li>
+            <li class="cart-dropdown-container">
+                <a href="{{ url_for('carrito') }}" title="Carrito de Compras" class="cart-icon-link">
+                    <i class="fa-solid fa-cart-shopping fa-lg"></i>
+                    <span class="cart-badge">{{ cart_count|default(0) }}</span>
+                </a>
+                <div class="cart-dropdown" id="cartDropdown">
+                    <div class="cart-dropdown-header">
+                        <h4>Mi Carrito</h4>
+                        <span id="cartDropdownCount">0</span>
+                    </div>
+                    <div class="cart-dropdown-items" id="cartDropdownItems">
+                        <div class="cart-dropdown-empty">Cargando...</div>
+                    </div>
+                    <div class="cart-dropdown-footer" id="cartDropdownFooter" style="display:none;">
+                        <div class="cart-dropdown-total">
+                            <span>Total</span>
+                            <span id="cartDropdownTotal">$0.00</span>
+                        </div>
+                        <a href="{{ url_for('carrito') }}" class="btn-primary" style="width:100%;text-align:center;padding:14px;border-radius:12px;font-weight:700;font-size:1rem;">VER CARRITO</a>
+                    </div>
+                </div>
+            </li>
         </ul>
         <div class="burger-menu" id="burger-menu" style="margin-left: 20px;">
             <span></span><span></span><span></span>
@@ -47,21 +68,6 @@
           {% endif %}
         {% endwith %}
         
-        <!-- Global modal for "Producto añadido" (used by AJAX add-to-cart) -->
-        <div id="globalAddedModal" class="added-modal" aria-hidden="true" style="display:none;">
-            <div class="added-modal-content added-toast">
-                <img id="globalAddedModalImage" src="" alt="" class="added-modal-image" style="display:none;">
-                <div class="added-modal-body">
-                    <button id="globalAddedModalClose" class="added-modal-close" aria-label="Cerrar">&times;</button>
-                    <h3 id="globalAddedModalTitle">Producto añadido al carrito</h3>
-                    <p id="globalAddedModalText">El producto se añadió correctamente a tu carrito.</p>
-                    <div class="added-modal-actions">
-                        <a href="{{ url_for('catalogo') }}" class="btn-outline">Seguir comprando</a>
-                        <a href="{{ url_for('carrito') }}" class="btn-primary">Ir a pagar</a>
-                    </div>
-                </div>
-            </div>
-        </div>
         {% block content %}{% endblock %}
     </div>
 
@@ -127,5 +133,19 @@
         });
     });
     </script>
+
+    <!-- Shein-style Add to Cart Modal -->
+    <div class="cart-modal-overlay" id="cartModal" role="dialog" aria-modal="true">
+        <div class="cart-modal">
+            <button class="cart-modal-close" id="cartModalClose" aria-label="Cerrar">&times;</button>
+            <div class="cart-modal-body" id="cartModalBody">
+                <!-- Content injected via JS -->
+            </div>
+            <div class="cart-modal-footer">
+                <button class="btn-secondary cart-modal-continue" id="cartModalContinue">Seguir comprando</button>
+                <a href="{{ url_for('carrito') }}" class="btn-primary cart-modal-viewcart">Ver carrito</a>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

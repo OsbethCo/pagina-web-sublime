@@ -3,18 +3,11 @@ import time
 import json
 import sqlite3
 import urllib.request
-from urllib.parse import quote_plus, unquote_plus
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_from_directory
-from authlib.integrations.flask_client import OAuth
 from models import db, User, Product, Order
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'super_secret_key_for_sublime')
-app.config['OAUTHLIB_INSECURE_TRANSPORT'] = os.environ.get('OAUTHLIB_INSECURE_TRANSPORT', '1')
-app.config['GOOGLE_CLIENT_ID'] = os.environ.get('GOOGLE_CLIENT_ID', '')
-app.config['GOOGLE_CLIENT_SECRET'] = os.environ.get('GOOGLE_CLIENT_SECRET', '')
-app.config['FACEBOOK_CLIENT_ID'] = os.environ.get('FACEBOOK_CLIENT_ID', '')
-app.config['FACEBOOK_CLIENT_SECRET'] = os.environ.get('FACEBOOK_CLIENT_SECRET', '')
+app.secret_key = 'super_secret_key_for_sublime'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SHARED_DB_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', 'Sublime', 'BD', 'database.db'))
 SHARED_SQL_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', 'Sublime', 'BD', 'database.sql'))
@@ -46,27 +39,6 @@ def fetch_bcv_rate():
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{SHARED_DB_PATH}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 os.makedirs(os.path.dirname(SHARED_DB_PATH), exist_ok=True)
-
-oauth = OAuth(app)
-
-oauth.register(
-    'google',
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_id=app.config['GOOGLE_CLIENT_ID'],
-    client_secret=app.config['GOOGLE_CLIENT_SECRET'],
-    client_kwargs={'scope': 'openid email profile'}
-)
-
-oauth.register(
-    'facebook',
-    client_id=app.config['FACEBOOK_CLIENT_ID'],
-    client_secret=app.config['FACEBOOK_CLIENT_SECRET'],
-    access_token_url='https://graph.facebook.com/v16.0/oauth/access_token',
-    authorize_url='https://www.facebook.com/v16.0/dialog/oauth',
-    api_base_url='https://graph.facebook.com/',
-    client_kwargs={'scope': 'email'},
-    request_token_params={'auth_type': 'rerequest'}
-)
 
 
 def ensure_shared_db():
@@ -104,21 +76,10 @@ def seed_default_admin():
         conn.execute('INSERT OR IGNORE INTO roles (id_rol, nombre) VALUES (?, ?)', (1, 'Administrador'))
         conn.execute('INSERT OR IGNORE INTO roles (id_rol, nombre) VALUES (?, ?)', (2, 'Trabajador'))
         conn.commit()
-
         admin_exists = conn.execute('SELECT 1 FROM usuarios WHERE correo = ? LIMIT 1', ('admin@sublime.com',)).fetchone()
         if not admin_exists:
-            conn.execute(
-                'INSERT OR IGNORE INTO usuarios (nombre, correo, contraseña, id_rol) VALUES (?, ?, ?, ?)',
-                ('Administrador', 'admin@sublime.com', 'admin123', 1)
-            )
-            conn.commit()
-
-        web_admin_exists = conn.execute('SELECT 1 FROM usuarios WHERE correo = ? LIMIT 1', ('admin_web@sublime.com',)).fetchone()
-        if not web_admin_exists:
-            conn.execute(
-                'INSERT OR IGNORE INTO usuarios (nombre, correo, contraseña, id_rol) VALUES (?, ?, ?, ?)',
-                ('Administrador Web', 'admin_web@sublime.com', 'adminweb123', 1)
-            )
+            conn.execute('INSERT OR IGNORE INTO usuarios (nombre, correo, contraseña, id_rol) VALUES (?, ?, ?, ?)',
+                         ('Administrador', 'admin@sublime.com', 'admin123', 1))
             conn.commit()
     except sqlite3.OperationalError:
         pass
@@ -128,47 +89,6 @@ def seed_default_admin():
 
 def placeholder():
     return '?'
-
-
-def get_role_name_by_id(role_id):
-    conn = get_shared_db()
-    row = conn.execute('SELECT nombre FROM roles WHERE id_rol = ? LIMIT 1', (role_id,)).fetchone()
-    conn.close()
-    return row['nombre'] if row else 'Trabajador'
-
-
-def is_valid_next_url(next_url):
-    return bool(next_url and next_url.startswith('/') and '..' not in next_url)
-
-
-def find_or_create_social_user(email, name):
-    conn = get_shared_db()
-    user = conn.execute(
-        'SELECT id_usuario, nombre, correo, contraseña, id_rol FROM usuarios WHERE correo = ? LIMIT 1',
-        (email,)
-    ).fetchone()
-    if user:
-        conn.close()
-        return user
-
-    admin_role = email.lower() in ('admin@sublime.com', 'admin_web@sublime.com')
-    role_name = 'Administrador' if admin_role else 'Trabajador'
-    role = conn.execute('SELECT id_rol FROM roles WHERE nombre = ? LIMIT 1', (role_name,)).fetchone()
-    role_id = role['id_rol'] if role else (1 if admin_role else 2)
-    display_name = name or email.split('@')[0]
-    password_placeholder = os.urandom(16).hex()
-
-    conn.execute(
-        'INSERT INTO usuarios VALUES (NULL, ?, ?, ?, ?)',
-        (display_name, email, password_placeholder, role_id)
-    )
-    conn.commit()
-    user = conn.execute(
-        'SELECT id_usuario, nombre, correo, contraseña, id_rol FROM usuarios WHERE correo = ? LIMIT 1',
-        (email,)
-    ).fetchone()
-    conn.close()
-    return user
 
 
 def map_product_row(row):
@@ -277,18 +197,9 @@ def get_or_create_custom_product(conn, name='Producto Personalizado', descriptio
     # Dejar un nombre legible pero único para evitar que distintos diseños compartan el mismo id
     import time
     unique_name = f"{name} - {int(time.time()*1000)}"
-
-    # Asegurar que exista una categoría para productos personalizados
-    category_row = conn.execute('SELECT id_categoria FROM categorias WHERE nombre = ? LIMIT 1', ('Personalizado',)).fetchone()
-    if category_row:
-        category_id = category_row['id_categoria']
-    else:
-        category_cursor = conn.execute('INSERT INTO categorias (nombre) VALUES (?)', ('Personalizado',))
-        category_id = category_cursor.lastrowid
-
     cursor = conn.execute(
-        'INSERT INTO productos (nombre, descripcion, costo, precio_venta, id_categoria, activo) VALUES (?, ?, ?, ?, ?, 1)',
-        (unique_name, description, price, price, category_id)
+        'INSERT INTO productos (nombre, descripcion, costo, precio_venta, activo) VALUES (?, ?, ?, ?, 1)',
+        (unique_name, description, price, price)
     )
     conn.commit()
     return cursor.lastrowid
@@ -303,8 +214,12 @@ def load_cart_from_db():
     carrito_id = get_or_create_cart(conn, cliente_id)
     
     items = conn.execute(
+<<<<<<< HEAD
         'SELECT dc.id_detalle, dc.id_producto, dc.cantidad, dc.precio_unitario, p.nombre AS name, p.descripcion, '
         '(SELECT ip.ruta_imagen FROM imagenes_productos ip WHERE ip.id_producto = p.id_producto ORDER BY ip.id_imagen LIMIT 1) AS image_url '
+=======
+        'SELECT dc.id_detalle, dc.id_producto, dc.cantidad, dc.precio_unitario, p.nombre AS name, p.descripcion '
+>>>>>>> 52ca968bff56542ba0b84efc09c713e45f438d77
         'FROM detalle_carrito dc '
         'LEFT JOIN productos p ON dc.id_producto = p.id_producto '
         'WHERE dc.id_carrito = ? '
@@ -319,8 +234,12 @@ def load_cart_from_db():
             'name': item['name'] or 'Producto personalizado',
             'price': float(item['precio_unitario']),
             'quantity': item['cantidad'],
+<<<<<<< HEAD
             'details': item['descripcion'] or '',
             'image_url': item['image_url'] or 'placeholder.png'
+=======
+            'details': item['descripcion'] or ''
+>>>>>>> 52ca968bff56542ba0b84efc09c713e45f438d77
         }
         for item in items
     ]
@@ -742,22 +661,7 @@ def api_add_to_cart():
         session.modified = True
 
     cart_count = len(cart)
-    # Construir URL pública de la imagen si es local
-    image_path = p.get('image_url') or ''
-    if image_path and not (image_path.startswith('http://') or image_path.startswith('https://')):
-        try:
-            image_url = url_for('static', filename=f'images/{image_path}')
-        except Exception:
-            image_url = url_for('static', filename=f'images/placeholder.png')
-    else:
-        image_url = image_path or url_for('static', filename='images/placeholder.png')
-
-    return jsonify({
-        'mensaje': 'Producto añadido al carrito.',
-        'cart_count': cart_count,
-        'product_name': p.get('name'),
-        'product_image': image_url
-    })
+    return jsonify({'mensaje': 'Producto añadido al carrito.', 'cart_count': cart_count})
 
 
 @app.route('/api/checkout', methods=['POST'])
@@ -826,19 +730,17 @@ def api_checkout():
 # ADMIN PANEL STATIC FILES Y ENDPOINTS
 @app.route('/admin-panel/')
 def admin_panel_index():
-    if not is_admin_panel_user():
+    if 'user_id' not in session:
         return redirect(url_for('login', next='/admin'))
     return send_from_directory(ADMIN_PANEL_DIR, 'index.html')
 
 @app.route('/admin-panel/<path:filename>')
 def admin_panel_static(filename):
-    if not is_admin_panel_user():
-        return redirect(url_for('login', next='/admin'))
     return send_from_directory(ADMIN_PANEL_DIR, filename)
 
 @app.route('/admin')
 def admin_redirect():
-    if not is_admin_panel_user():
+    if 'user_id' not in session:
         return redirect(url_for('login', next='/admin'))
     return redirect('/admin-panel/')
 
@@ -1230,8 +1132,7 @@ def agregar_carrito(id):
         session.modified = True
     
     flash(f"{p['name']} añadido al carrito.", 'success')
-    # Redirect to the cart and indicate a recent addition so the UI can show a popup
-    return redirect(url_for('carrito', added=1, added_name=p['name']))
+    return redirect(url_for('catalogo'))
 
 @app.route('/carrito')
 def carrito():
@@ -1240,6 +1141,7 @@ def carrito():
     else:
         cart = session.get('cart', [])
     
+<<<<<<< HEAD
     # Enrich session cart items with image_url
     for item in cart:
         if 'image_url' not in item or not item.get('image_url'):
@@ -1254,6 +1156,8 @@ def carrito():
             else:
                 item['image_url'] = 'placeholder.png'
     
+=======
+>>>>>>> 52ca968bff56542ba0b84efc09c713e45f438d77
     total = sum(item['price'] * item.get('quantity', 1) for item in cart)
     return render_template('carrito.html', cart=cart, total=total, cart_count=len(cart))
 
@@ -1276,6 +1180,7 @@ def eliminar_carrito(index):
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
     if 'user_id' in session:
+<<<<<<< HEAD
         full_cart = load_cart_from_db()
     else:
         full_cart = session.get('cart', [])
@@ -1284,31 +1189,41 @@ def checkout():
         flash('Tu carrito está vacío.', 'error')
         return redirect(url_for('catalogo'))
 
+    # Handle selected indices from cart page (POST with selected_indices)
     selected_indices = request.form.get('selected_indices')
     if selected_indices:
         try:
             indices = json.loads(selected_indices)
             if isinstance(indices, list) and len(indices) > 0:
-                session['checkout_items'] = [full_cart[i] for i in indices if isinstance(i, int) and 0 <= i < len(full_cart)]
+                session['checkout_items'] = [full_cart[i] for i in indices if i < len(full_cart)]
+                session.modified = True
             else:
                 session['checkout_items'] = list(full_cart)
         except (json.JSONDecodeError, TypeError, IndexError):
             session['checkout_items'] = list(full_cart)
-        session.modified = True
         return redirect(url_for('checkout'))
 
+    # Use stored checkout items if available
     if 'checkout_items' in session:
         cart = session['checkout_items']
     else:
         cart = full_cart
 
+    total = sum(item['price'] * item.get('quantity', 1) for item in cart)
+
+    if request.method == 'POST' and request.form.get('name'):
+=======
+        cart = load_cart_from_db()
+    else:
+        cart = session.get('cart', [])
+    
     if not cart:
         flash('Tu carrito está vacío.', 'error')
         return redirect(url_for('catalogo'))
 
-    total = sum(float(item.get('price', 0)) * int(item.get('quantity', 1)) for item in cart)
-
-    if request.method == 'POST' and request.form.get('name'):
+    total = sum(item['price'] * item.get('quantity', 1) for item in cart)
+    if request.method == 'POST':
+>>>>>>> 52ca968bff56542ba0b84efc09c713e45f438d77
         name = request.form.get('name')
         address = request.form.get('address')
         payment_method = request.form.get('payment_method')
@@ -1330,31 +1245,51 @@ def checkout():
             product_id = item.get('id')
             if not product_id:
                 product_id = get_or_create_custom_product(conn)
-            cantidad = int(item.get('quantity', 1))
+            cantidad = item.get('quantity', 1)
             conn.execute(
                 'INSERT INTO detalle_pedidos (id_pedido, id_producto, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
-                (pedido_id, product_id, cantidad, float(item.get('price', 0)))
+                (pedido_id, product_id, cantidad, item['price'])
             )
 
+<<<<<<< HEAD
+    conn.execute(
+        'INSERT INTO envios (id_pedido, direccion_envio, empresa_envio, numero_guia, estado_envio, fecha_envio) VALUES (?, ?, ?, ?, ?, datetime("now"))',
+        (pedido_id, address, payment_method or 'Pendiente', reference or '', 'Pendiente',)
+    )
+    conn.commit()
+    conn.close()
+
+    # Limpiar carrito y checkout
+    if 'checkout_items' in session:
+        session.pop('checkout_items', None)
+    if 'user_id' in session:
+        save_cart_to_db([])
+    else:
+        session.pop('cart', None)
+    
+    return redirect(url_for('factura', order_id=pedido_id))
+
+    cart_count = len(cart)
+    return render_template('checkout.html', total=total, cart_count=cart_count, item_count=len(cart))
+=======
         conn.execute(
             'INSERT INTO envios (id_pedido, direccion_envio, empresa_envio, numero_guia, estado_envio, fecha_envio) VALUES (?, ?, ?, ?, ?, datetime("now"))',
-            (pedido_id, address, payment_method or 'Pendiente', reference or '', 'Pendiente')
+            (pedido_id, address, payment_method or 'Pendiente', reference or '', 'Pendiente',)
         )
         conn.commit()
         conn.close()
 
-        if 'checkout_items' in session:
-            session.pop('checkout_items', None)
+        # Limpiar carrito
         if 'user_id' in session:
             save_cart_to_db([])
         else:
             session.pop('cart', None)
-        session.modified = True
-
+        
         return redirect(url_for('factura', order_id=pedido_id))
 
     cart_count = len(cart)
-    return render_template('checkout.html', total=total, cart_count=cart_count, item_count=len(cart))
+    return render_template('checkout.html', total=total, cart_count=cart_count)
+>>>>>>> 52ca968bff56542ba0b84efc09c713e45f438d77
 
 @app.route('/factura/<int:order_id>')
 def factura(order_id):
@@ -1429,88 +1364,12 @@ def login():
             merge_guest_cart_into_db(guest_cart)
 
             next_url = request.form.get('next') or request.args.get('next') or url_for('home')
-            if next_url == '/admin' and not is_admin_panel_user():
-                flash('Sólo admin@sublime.com puede ingresar al panel administrativo.', 'error')
-                return redirect(url_for('login'))
-
             flash(f'¡Bienvenido de nuevo, {user["nombre"]}!', 'success')
             return redirect(next_url)
         else:
             flash('Usuario o contraseña incorrectos.', 'error')
 
     return render_template('login.html', cart_count=cart_count)
-
-
-@app.route('/auth/<provider>')
-def social_login(provider):
-    provider = provider.lower()
-    if provider not in ('google', 'facebook'):
-        flash('Proveedor de autenticación no soportado.', 'error')
-        return redirect(url_for('login'))
-
-    next_url = request.args.get('next') or url_for('home')
-    if not is_valid_next_url(next_url):
-        next_url = url_for('home')
-
-    client = oauth.create_client(provider)
-    if client is None:
-        flash('Configuración OAuth inválida para el proveedor.', 'error')
-        return redirect(url_for('login'))
-
-    redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
-    return client.authorize_redirect(redirect_uri, state=quote_plus(next_url))
-
-
-@app.route('/auth/<provider>/callback')
-def oauth_callback(provider):
-    provider = provider.lower()
-    if provider not in ('google', 'facebook'):
-        flash('Proveedor de OAuth no soportado.', 'error')
-        return redirect(url_for('login'))
-
-    client = oauth.create_client(provider)
-    if client is None:
-        flash('Configuración OAuth inválida para el proveedor.', 'error')
-        return redirect(url_for('login'))
-
-    token = client.authorize_access_token()
-    if not token:
-        flash('Error en la autorización de OAuth.', 'error')
-        return redirect(url_for('login'))
-
-    email = None
-    name = None
-    if provider == 'google':
-        userinfo = client.parse_id_token(token)
-        email = userinfo.get('email')
-        name = userinfo.get('name')
-    else:
-        profile = client.get('me?fields=id,name,email').json()
-        email = profile.get('email')
-        name = profile.get('name')
-
-    if not email:
-        flash('No se obtuvo el correo electrónico desde el proveedor OAuth.', 'error')
-        return redirect(url_for('login'))
-
-    user = find_or_create_social_user(email, name)
-    session['user_id'] = user['id_usuario']
-    session['username'] = user['nombre']
-    session['user_email'] = user['correo']
-    session['user_role'] = get_role_name_by_id(user['id_rol'])
-
-    merge_guest_cart_into_db(session.get('cart', []))
-
-    next_url = unquote_plus(request.args.get('state', '')) or url_for('home')
-    if not is_valid_next_url(next_url):
-        next_url = url_for('home')
-
-    if next_url == '/admin' and not is_admin_panel_user():
-        flash('Sólo admin@sublime.com puede ingresar al panel administrativo.', 'error')
-        return redirect(url_for('login'))
-
-    flash(f'Has iniciado sesión con {provider.capitalize()}.', 'success')
-    return redirect(next_url)
 
 
 @app.route('/registro', methods=['GET', 'POST'])
