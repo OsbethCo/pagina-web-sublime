@@ -880,6 +880,102 @@ def api_sales_data():
     conn.close()
     return jsonify({'products': [dict(row) for row in products], 'clients': [dict(row) for row in clients]})
 
+@app.route('/api/report-data', methods=['GET'])
+def api_report_data():
+
+    conn = get_shared_db()
+
+    try:
+
+        tipo = request.args.get('tipo', 'mensual')
+
+        if tipo == 'diario':
+
+            filtro = """
+            DATE(f.fecha)=DATE('now')
+            """
+
+        elif tipo == 'semanal':
+
+            filtro = """
+            DATE(f.fecha)>=DATE('now','-7 day')
+            """
+
+        elif tipo == 'anual':
+
+            filtro = """
+            strftime('%Y',f.fecha)=strftime('%Y','now')
+            """
+
+        else:
+
+            filtro = """
+            strftime('%m',f.fecha)=strftime('%m','now')
+            """
+
+        ventas = conn.execute(f"""
+
+            SELECT
+
+                f.numero_factura,
+
+                f.fecha,
+
+                c.nombre AS cliente,
+
+                p.nombre AS producto,
+
+                d.cantidad,
+
+                d.precio_unitario,
+
+                f.subtotal,
+
+                f.impuesto,
+
+                f.total_usd,
+
+                f.total_bs,
+
+                tc.tasa
+
+            FROM facturas f
+
+            INNER JOIN ventas v
+                ON v.id_venta = f.id_venta
+
+            INNER JOIN clientes c
+                ON c.id_cliente = v.id_cliente
+
+            INNER JOIN detalle_ventas d
+                ON d.id_venta = v.id_venta
+
+            INNER JOIN productos p
+                ON p.id_producto = d.id_producto
+
+            LEFT JOIN tasas_cambio tc
+                ON tc.id_tasa = f.id_tasa
+
+            WHERE {filtro}
+
+            ORDER BY f.fecha DESC
+
+        """).fetchall()
+
+        conn.close()
+
+        return jsonify({
+            'ventas': [dict(row) for row in ventas]
+        })
+
+    except Exception as e:
+
+        conn.close()
+
+        return jsonify({
+            'message': str(e)
+        }), 500
+
 @app.route('/api/product', methods=['POST'])
 def api_create_product():
     data = request.get_json() or {}
