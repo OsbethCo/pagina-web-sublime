@@ -32,6 +32,24 @@
     transform: translateY(-2px);
 }
 
+.glass-input:-webkit-autofill,
+.glass-input:-webkit-autofill:hover,
+.glass-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #1e1e1e inset !important;
+    -webkit-text-fill-color: var(--text-color) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    caret-color: var(--text-color);
+}
+
+body.light-mode .glass-input:-webkit-autofill,
+body.light-mode .glass-input:-webkit-autofill:hover,
+body.light-mode .glass-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #e8f5e9 inset !important;
+    -webkit-text-fill-color: #064e3b !important;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    caret-color: #064e3b;
+}
+
 .input-group:focus-within .input-icon {
     color: var(--accent-color) !important;
     transform: translateY(-50%) scale(1.1);

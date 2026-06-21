@@ -42,22 +42,20 @@ os.makedirs(os.path.dirname(SHARED_DB_PATH), exist_ok=True)
 
 
 def ensure_shared_db():
-    if not os.path.exists(SHARED_DB_PATH):
-        # Si existe el archivo SQL, usarlo para crear la DB compartida
-        if os.path.exists(SHARED_SQL_PATH):
-            conn = sqlite3.connect(SHARED_DB_PATH)
-            conn.execute('PRAGMA foreign_keys = ON')
-            with open(SHARED_SQL_PATH, 'r', encoding='utf-8') as f:
-                conn.executescript(f.read())
-            conn.commit()
-            conn.close()
-        else:
-            # Si no hay script SQL disponible, crear un archivo de base de datos vacío
-            # y dejaremos que SQLAlchemy cree las tablas más adelante.
-            conn = sqlite3.connect(SHARED_DB_PATH)
-            conn.execute('PRAGMA foreign_keys = ON')
-            conn.commit()
-            conn.close()
+    # Debug: print paths
+    print('SHARED_DB_PATH:', SHARED_DB_PATH)
+    print('SHARED_SQL_PATH:', SHARED_SQL_PATH)
+    # Ensure the directory for the database exists
+    os.makedirs(os.path.dirname(SHARED_DB_PATH), exist_ok=True)
+    # Connect to the database (creates file if it does not exist)
+    conn = sqlite3.connect(SHARED_DB_PATH)
+    conn.execute('PRAGMA foreign_keys = ON')
+    # Execute the schema script if it exists; CREATE TABLE IF NOT EXISTS protects existing tables
+    if os.path.exists(SHARED_SQL_PATH):
+        with open(SHARED_SQL_PATH, 'r', encoding='utf-8') as f:
+            conn.executescript(f.read())
+    conn.commit()
+    conn.close()
 
 
 def get_shared_db():
@@ -183,6 +181,43 @@ def fetch_product_by_id(product_id):
     ).fetchone()
     conn.close()
     return map_product_row(row) if row else None
+
+
+def user_can_review(user_email, product_id):
+    if not user_email:
+        return False
+    conn = get_shared_db()
+    row = conn.execute(
+        'SELECT COUNT(*) AS total FROM pedidos p '
+        'JOIN clientes c ON p.id_cliente = c.id_cliente '
+        'JOIN detalle_pedidos dp ON p.id_pedido = dp.id_pedido '
+        'JOIN estados_pedido ep ON p.id_estado = ep.id_estado '
+        'WHERE c.correo = ? AND dp.id_producto = ? AND ep.nombre = "Entregado"',
+        (user_email, product_id)
+    ).fetchone()
+    conn.close()
+    return row['total'] > 0
+
+
+def fetch_reviews(product_id):
+    conn = get_shared_db()
+    rows = conn.execute(
+        'SELECT r.puntuacion, r.comentario, r.fecha, u.nombre AS usuario '
+        'FROM reseñas r '
+        'JOIN usuarios u ON r.id_usuario = u.id_usuario '
+        'WHERE r.id_producto = ? '
+        'ORDER BY r.fecha DESC',
+        (product_id,)
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            'puntuacion': row['puntuacion'],
+            'comentario': row['comentario'],
+            'fecha': row['fecha'],
+            'usuario': row['usuario']
+        } for row in rows
+    ]
 
 
 def get_or_create_client(conn, email, nombre, direccion):
@@ -1179,7 +1214,13 @@ def producto(id):
         if '404.html' in os.listdir(os.path.join(BASE_DIR, 'templates')):
             return render_template('404.html'), 404
         return 'Producto no encontrado', 404
-    return render_template('producto.html', producto=p)
+    
+    reviews = fetch_reviews(id)
+    can_review = False
+    if 'user_id' in session:
+        can_review = user_can_review(session.get('user_email'), id)
+        
+    return render_template('producto.html', producto=p, reviews=reviews, can_review=can_review)
 
 @app.route('/personalizar', methods=['GET', 'POST'])
 def personalizar():
@@ -1532,17 +1573,396 @@ def privacidad():
     return render_template('privacidad.html', cart_count=cart_count)
 
 
-@app.route('/perfil')
+@app.route('/perfil', methods=['GET', 'POST'])
 def perfil():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+        
     user = load_current_user()
     if not user:
         flash('No se encontró información de usuario. Inicia sesión nuevamente.', 'error')
         return redirect(url_for('logout'))
-
+        
+    conn = get_shared_db()
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'cambiar_password':
+            current_pass = request.form.get('current_password')
+            new_pass = request.form.get('new_password')
+            confirm_pass = request.form.get('confirm_password')
+            
+            user_db = conn.execute('SELECT contraseña FROM usuarios WHERE id_usuario = ? LIMIT 1', (session['user_id'],)).fetchone()
+            
+            if new_pass != confirm_pass:
+                flash('La nueva contraseña y la confirmación no coinciden.', 'error')
+            elif user_db and user_db['contraseña'] != current_pass:
+                flash('La contraseña actual es incorrecta.', 'error')
+            else:
+                conn.execute('UPDATE usuarios SET contraseña = ? WHERE id_usuario = ?', (new_pass, session['user_id']))
+                conn.commit()
+                flash('Contraseña actualizada exitosamente.', 'success')
+                
+        elif action == 'cambiar_email':
+            new_email = request.form.get('new_email')
+            existing = conn.execute('SELECT id_usuario FROM usuarios WHERE correo = ? AND id_usuario != ? LIMIT 1', (new_email, session['user_id'])).fetchone()
+            if existing:
+                flash('El correo electrónico ya está registrado por otro usuario.', 'error')
+            else:
+                conn.execute('UPDATE usuarios SET correo = ? WHERE id_usuario = ?', (new_email, session['user_id']))
+                conn.execute('UPDATE clientes SET correo = ? WHERE correo = ?', (new_email, user['email']))
+                conn.commit()
+                session['user_email'] = new_email
+                flash('Correo electrónico actualizado exitosamente.', 'success')
+                
+        elif action == 'cambiar_telefono':
+            flash('Número de teléfono actualizado exitosamente.', 'success')
+            
+        conn.close()
+        return redirect(url_for('perfil'))
+        
+    # GET method
+    cliente = conn.execute('SELECT id_cliente FROM clientes WHERE correo = ? LIMIT 1', (user['email'],)).fetchone()
+    orders_with_items = []
+    if cliente:
+        orders = conn.execute(
+            'SELECT p.id_pedido, p.total, p.fecha, ep.nombre AS status, env.direccion_envio AS address, env.empresa_envio AS payment_method '
+            'FROM pedidos p '
+            'LEFT JOIN estados_pedido ep ON p.id_estado = ep.id_estado '
+            'LEFT JOIN envios env ON env.id_pedido = p.id_pedido '
+            'WHERE p.id_cliente = ? '
+            'ORDER BY p.id_pedido DESC',
+            (cliente['id_cliente'],)
+        ).fetchall()
+        
+        for order in orders:
+            items = conn.execute(
+                'SELECT dp.cantidad, dp.precio_unitario, pr.nombre AS name '
+                'FROM detalle_pedidos dp '
+                'LEFT JOIN productos pr ON dp.id_producto = pr.id_producto '
+                'WHERE dp.id_pedido = ?',
+                (order['id_pedido'],)
+            ).fetchall()
+            
+            items_list = [
+                {
+                    'name': item['name'] or 'Producto personalizado',
+                    'price': float(item['precio_unitario'])
+                } for item in items
+            ]
+            
+            orders_with_items.append({
+                'order': {
+                    'id': order['id_pedido'],
+                    'status': order['status'] or 'Pendiente',
+                    'total': float(order['total']),
+                    'address': order['address'] or '',
+                    'payment_method': order['payment_method'] or 'N/A'
+                },
+                'items': items_list
+            })
+            
+    links = conn.execute('SELECT proveedor, proveedor_correo FROM cuentas_vinculadas WHERE id_usuario = ?', (session['user_id'],)).fetchall()
+    linked_accounts = {row['proveedor']: row['proveedor_correo'] for row in links}
+    conn.close()
+    
     cart_count = len(load_cart_from_db()) if 'user_id' in session else len(session.get('cart', []))
-    return render_template('perfil.html', user=user, cart_count=cart_count)
+    return render_template(
+        'perfil.html',
+        user=user,
+        cart_count=cart_count,
+        orders_with_items=orders_with_items,
+        linked_accounts=linked_accounts
+    )
+
+
+@app.route('/newsletter', methods=['POST'])
+def newsletter():
+    data = request.get_json(silent=True) or request.form
+    email = data.get('email')
+    if not email:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'message': 'Correo inválido.'}), 400
+        flash('Correo electrónico inválido.', 'error')
+        return redirect(request.referrer or url_for('home'))
+        
+    conn = get_shared_db()
+    try:
+        conn.execute('INSERT INTO newsletter (correo) VALUES (?)', (email,))
+        conn.commit()
+        msg = '¡Gracias por suscribirte al boletín!'
+        status = 'success'
+    except sqlite3.IntegrityError:
+        msg = 'Este correo ya está registrado en el boletín.'
+        status = 'info'
+    finally:
+        conn.close()
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+        return jsonify({'success': True, 'message': msg, 'status': status})
+    flash(msg, status)
+    return redirect(request.referrer or url_for('home'))
+
+
+@app.route('/login/google')
+def login_google():
+    username = request.args.get('username', 'Google User')
+    email = request.args.get('email', 'google_user@example.com')
+    provider_id = request.args.get('provider_id', 'google_123456789')
+    link_mode = request.args.get('link') == 'true' or 'user_id' in session
+    
+    conn = get_shared_db()
+    
+    if link_mode and 'user_id' in session:
+        current_user_id = session['user_id']
+        existing = conn.execute(
+            'SELECT id_usuario FROM cuentas_vinculadas WHERE proveedor = "google" AND proveedor_id = ? LIMIT 1',
+            (provider_id,)
+        ).fetchone()
+        
+        if existing:
+            if existing['id_usuario'] == current_user_id:
+                flash('Esta cuenta de Google ya está vinculada a tu cuenta.', 'info')
+            else:
+                flash('Esta cuenta de Google ya está vinculada a otro usuario.', 'error')
+            conn.close()
+            return redirect(url_for('perfil'))
+            
+        try:
+            conn.execute(
+                'INSERT INTO cuentas_vinculadas (id_usuario, proveedor, proveedor_id, proveedor_correo) VALUES (?, "google", ?, ?)',
+                (current_user_id, provider_id, email)
+            )
+            conn.commit()
+            flash('Cuenta de Google vinculada exitosamente.', 'success')
+        except sqlite3.IntegrityError:
+            flash('Ya tienes una cuenta de Google vinculada a este perfil.', 'error')
+        finally:
+            conn.close()
+            
+        return redirect(url_for('perfil'))
+        
+    else:
+        linked = conn.execute(
+            'SELECT id_usuario FROM cuentas_vinculadas WHERE proveedor = "google" AND proveedor_id = ? LIMIT 1',
+            (provider_id,)
+        ).fetchone()
+        
+        if linked:
+            user_id = linked['id_usuario']
+            user_row = conn.execute('SELECT nombre, correo FROM usuarios WHERE id_usuario = ? LIMIT 1', (user_id,)).fetchone()
+            if user_row:
+                username = user_row['nombre']
+                email = user_row['correo']
+            else:
+                conn.execute('DELETE FROM cuentas_vinculadas WHERE proveedor = "google" AND proveedor_id = ?', (provider_id,))
+                conn.commit()
+                linked = None
+                
+        if not linked:
+            user = conn.execute('SELECT id_usuario, nombre FROM usuarios WHERE correo = ? LIMIT 1', (email,)).fetchone()
+            if user:
+                user_id = user['id_usuario']
+                username = user['nombre']
+                try:
+                    conn.execute(
+                        'INSERT INTO cuentas_vinculadas (id_usuario, proveedor, proveedor_id, proveedor_correo) VALUES (?, "google", ?, ?)',
+                        (user_id, provider_id, email)
+                    )
+                    conn.commit()
+                except sqlite3.IntegrityError:
+                    pass
+            else:
+                role = conn.execute('SELECT id_rol FROM roles WHERE nombre = ? LIMIT 1', ('Trabajador',)).fetchone()
+                role_id = role['id_rol'] if role else 2
+                cursor = conn.execute('INSERT INTO usuarios VALUES (NULL, ?, ?, ?, ?)', (username, email, 'oauth_simulated', role_id))
+                user_id = cursor.lastrowid
+                conn.execute(
+                    'INSERT INTO cuentas_vinculadas (id_usuario, proveedor, proveedor_id, proveedor_correo) VALUES (?, "google", ?, ?)',
+                    (user_id, provider_id, email)
+                )
+                conn.commit()
+                
+        conn.close()
+        
+        session['user_id'] = user_id
+        session['username'] = username
+        session['user_email'] = email
+        
+        guest_cart = session.get('cart', [])
+        merge_guest_cart_into_db(guest_cart)
+        
+        flash('¡Bienvenido! Iniciaste sesión exitosamente con Google.', 'success')
+        return redirect(url_for('home'))
+
+
+@app.route('/login/facebook')
+def login_facebook():
+    username = request.args.get('username', 'Facebook User')
+    email = request.args.get('email', 'facebook_user@example.com')
+    provider_id = request.args.get('provider_id', 'facebook_123456789')
+    link_mode = request.args.get('link') == 'true' or 'user_id' in session
+    
+    conn = get_shared_db()
+    
+    if link_mode and 'user_id' in session:
+        current_user_id = session['user_id']
+        existing = conn.execute(
+            'SELECT id_usuario FROM cuentas_vinculadas WHERE proveedor = "facebook" AND proveedor_id = ? LIMIT 1',
+            (provider_id,)
+        ).fetchone()
+        
+        if existing:
+            if existing['id_usuario'] == current_user_id:
+                flash('Esta cuenta de Facebook ya está vinculada a tu cuenta.', 'info')
+            else:
+                flash('Esta cuenta de Facebook ya está vinculada a otro usuario.', 'error')
+            conn.close()
+            return redirect(url_for('perfil'))
+            
+        try:
+            conn.execute(
+                'INSERT INTO cuentas_vinculadas (id_usuario, proveedor, proveedor_id, proveedor_correo) VALUES (?, "facebook", ?, ?)',
+                (current_user_id, provider_id, email)
+            )
+            conn.commit()
+            flash('Cuenta de Facebook vinculada exitosamente.', 'success')
+        except sqlite3.IntegrityError:
+            flash('Ya tienes una cuenta de Facebook vinculada a este perfil.', 'error')
+        finally:
+            conn.close()
+            
+        return redirect(url_for('perfil'))
+        
+    else:
+        linked = conn.execute(
+            'SELECT id_usuario FROM cuentas_vinculadas WHERE proveedor = "facebook" AND proveedor_id = ? LIMIT 1',
+            (provider_id,)
+        ).fetchone()
+        
+        if linked:
+            user_id = linked['id_usuario']
+            user_row = conn.execute('SELECT nombre, correo FROM usuarios WHERE id_usuario = ? LIMIT 1', (user_id,)).fetchone()
+            if user_row:
+                username = user_row['nombre']
+                email = user_row['correo']
+            else:
+                conn.execute('DELETE FROM cuentas_vinculadas WHERE proveedor = "facebook" AND proveedor_id = ?', (provider_id,))
+                conn.commit()
+                linked = None
+                
+        if not linked:
+            user = conn.execute('SELECT id_usuario, nombre FROM usuarios WHERE correo = ? LIMIT 1', (email,)).fetchone()
+            if user:
+                user_id = user['id_usuario']
+                username = user['nombre']
+                try:
+                    conn.execute(
+                        'INSERT INTO cuentas_vinculadas (id_usuario, proveedor, proveedor_id, proveedor_correo) VALUES (?, "facebook", ?, ?)',
+                        (user_id, provider_id, email)
+                    )
+                    conn.commit()
+                except sqlite3.IntegrityError:
+                    pass
+            else:
+                role = conn.execute('SELECT id_rol FROM roles WHERE nombre = ? LIMIT 1', ('Trabajador',)).fetchone()
+                role_id = role['id_rol'] if role else 2
+                cursor = conn.execute('INSERT INTO usuarios VALUES (NULL, ?, ?, ?, ?)', (username, email, 'oauth_simulated', role_id))
+                user_id = cursor.lastrowid
+                conn.execute(
+                    'INSERT INTO cuentas_vinculadas (id_usuario, proveedor, proveedor_id, proveedor_correo) VALUES (?, "facebook", ?, ?)',
+                    (user_id, provider_id, email)
+                )
+                conn.commit()
+                
+        conn.close()
+        
+        session['user_id'] = user_id
+        session['username'] = username
+        session['user_email'] = email
+        
+        guest_cart = session.get('cart', [])
+        merge_guest_cart_into_db(guest_cart)
+        
+        flash('¡Bienvenido! Iniciaste sesión exitosamente con Facebook.', 'success')
+        return redirect(url_for('home'))
+
+
+@app.route('/perfil/desvincular/<proveedor>', methods=['POST'])
+def unlink_social(proveedor):
+    if 'user_id' not in session:
+        flash('Debes iniciar sesión para desvincular una cuenta.', 'error')
+        return redirect(url_for('login'))
+        
+    if proveedor not in ['google', 'facebook']:
+        flash('Proveedor inválido.', 'error')
+        return redirect(url_for('perfil'))
+        
+    conn = get_shared_db()
+    try:
+        user = conn.execute('SELECT contraseña FROM usuarios WHERE id_usuario = ? LIMIT 1', (session['user_id'],)).fetchone()
+        other_links = conn.execute('SELECT COUNT(*) AS total FROM cuentas_vinculadas WHERE id_usuario = ? AND proveedor != ?', (session['user_id'], proveedor)).fetchone()
+        
+        has_password = user and user['contraseña'] != 'oauth_simulated' and len(user['contraseña']) > 0
+        has_other_link = other_links and other_links['total'] > 0
+        
+        if not has_password and not has_other_link:
+            flash('No puedes desvincular esta cuenta. Debes establecer una contraseña o vincular otro método de inicio de sesión primero.', 'error')
+        else:
+            conn.execute('DELETE FROM cuentas_vinculadas WHERE id_usuario = ? AND proveedor = ?', (session['user_id'], proveedor))
+            conn.commit()
+            flash(f'Cuenta de {proveedor.capitalize()} desvinculada exitosamente.', 'success')
+    except Exception as e:
+        flash('Ocurrió un error al desvincular la cuenta.', 'error')
+    finally:
+        conn.close()
+        
+    return redirect(url_for('perfil'))
+
+
+@app.route('/producto/<int:id>/review', methods=['POST'])
+def submit_review(id):
+    if 'user_id' not in session:
+        flash('Debes iniciar sesión para dejar una reseña.', 'error')
+        return redirect(url_for('login'))
+        
+    if not user_can_review(session.get('user_email'), id):
+        flash('Solo puedes calificar productos que hayas comprado y recibido.', 'error')
+        return redirect(url_for('producto', id=id))
+        
+    puntuacion = request.form.get('rating')
+    comentario = request.form.get('comment')
+    
+    if not puntuacion or not (1 <= int(puntuacion) <= 5):
+        flash('Por favor selecciona una puntuación válida (1-5 estrellas).', 'error')
+        return redirect(url_for('producto', id=id))
+        
+    conn = get_shared_db()
+    try:
+        existing = conn.execute(
+            'SELECT id_resena FROM reseñas WHERE id_usuario = ? AND id_producto = ? LIMIT 1',
+            (session['user_id'], id)
+        ).fetchone()
+        
+        if existing:
+            conn.execute(
+                'UPDATE reseñas SET puntuacion = ?, comentario = ?, fecha = CURRENT_TIMESTAMP WHERE id_resena = ?',
+                (int(puntuacion), comentario, existing['id_resena'])
+            )
+        else:
+            conn.execute(
+                'INSERT INTO reseñas (id_usuario, id_producto, puntuacion, comentario) VALUES (?, ?, ?, ?)',
+                (session['user_id'], id, int(puntuacion), comentario)
+            )
+        conn.commit()
+        flash('¡Gracias por tu reseña!', 'success')
+    except Exception as e:
+        flash('Ocurrió un error al guardar tu reseña.', 'error')
+    finally:
+        conn.close()
+        
+    return redirect(url_for('producto', id=id))
 
 
 @app.route('/mis-pedidos')
