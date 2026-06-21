@@ -89,6 +89,65 @@
                 </form>
             </div>
 
+            <!-- Cuentas Vinculadas -->
+            <div class="profile-card reveal">
+                <div class="profile-card-header">
+                    <i class="fa-solid fa-circle-nodes"></i>
+                    <h2>Cuentas Vinculadas</h2>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px; padding: 15px 0;">
+                    
+                    <!-- Google Link Row -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fa-brands fa-google" style="font-size: 1.5rem; background: linear-gradient(135deg, #ea4335, #fbbc05, #34a853, #4285f4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                            <div>
+                                <span style="font-weight: 600; color: var(--text-color); display: block; font-size: 0.95rem;">Google</span>
+                                {% if linked_accounts and 'google' in linked_accounts %}
+                                <span style="font-size: 0.85rem; color: var(--text-muted);">{{ linked_accounts['google'] }}</span>
+                                {% else %}
+                                <span style="font-size: 0.85rem; color: var(--text-muted);">No vinculada</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div>
+                            {% if linked_accounts and 'google' in linked_accounts %}
+                            <form action="{{ url_for('unlink_social', proveedor='google') }}" method="POST" style="margin: 0;">
+                                <button type="submit" class="btn-outline" style="border-color: #ff4a4a; color: #ff4a4a; padding: 6px 15px; font-size: 0.8rem; border-radius: 20px; background: rgba(255,74,74,0.05); cursor: pointer; transition: all 0.3s;">Desvincular</button>
+                            </form>
+                            {% else %}
+                            <a href="{{ url_for('login_google', link='true') }}" class="btn-primary" style="padding: 6px 15px; font-size: 0.8rem; border-radius: 20px; text-decoration: none;">Vincular</a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Facebook Link Row -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 5px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fa-brands fa-facebook-f" style="font-size: 1.5rem; color: #1877f2;"></i>
+                            <div>
+                                <span style="font-weight: 600; color: var(--text-color); display: block; font-size: 0.95rem;">Facebook</span>
+                                {% if linked_accounts and 'facebook' in linked_accounts %}
+                                <span style="font-size: 0.85rem; color: var(--text-muted);">{{ linked_accounts['facebook'] }}</span>
+                                {% else %}
+                                <span style="font-size: 0.85rem; color: var(--text-muted);">No vinculada</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div>
+                            {% if linked_accounts and 'facebook' in linked_accounts %}
+                            <form action="{{ url_for('unlink_social', proveedor='facebook') }}" method="POST" style="margin: 0;">
+                                <button type="submit" class="btn-outline" style="border-color: #ff4a4a; color: #ff4a4a; padding: 6px 15px; font-size: 0.8rem; border-radius: 20px; background: rgba(255,74,74,0.05); cursor: pointer; transition: all 0.3s;">Desvincular</button>
+                            </form>
+                            {% else %}
+                            <a href="{{ url_for('login_facebook', link='true') }}" class="btn-primary" style="padding: 6px 15px; font-size: 0.8rem; border-radius: 20px; text-decoration: none;">Vincular</a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
             <!-- Cerrar sesión -->
             <div style="margin-top: 10px;">
                 <a href="{{ url_for('logout') }}" class="btn-danger-grad profile-btn" style="display: inline-flex; align-items: center; gap: 8px;">
