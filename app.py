@@ -6,12 +6,21 @@ import urllib.request
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_from_directory
 from models import db, User, Product, Order
 
+
 app = Flask(__name__)
+
 app.secret_key = 'super_secret_key_for_sublime'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads","products")
+os.makedirs( UPLOAD_FOLDER,exist_ok=True)
 SHARED_DB_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', 'Sublime', 'BD', 'database.db'))
 SHARED_SQL_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', 'Sublime', 'BD', 'database.sql'))
 ADMIN_PANEL_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'Sublime', 'admin-panel'))
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{SHARED_DB_PATH}"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Cache para la tasa BCV
 BCV_RATE_CACHE = {'rate': 40.0, 'updated': 0}
